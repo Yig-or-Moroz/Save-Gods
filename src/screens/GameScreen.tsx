@@ -132,7 +132,7 @@ const GameScreen = ({ navigation, route }: any) => {
 				<View style={styles.navButtons}>
 					<TouchableOpacity
 						style={styles.navButton}
-						onPress={() => Alert.alert('Корабель', 'Тут буде екран корабля')}
+						onPress={() => navigation.navigate('Ship', { gameId: game.id })}
 					>
 						<Text style={styles.navButtonText}>Корабель</Text>
 					</TouchableOpacity>

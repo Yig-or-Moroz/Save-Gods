@@ -34,12 +34,12 @@ export interface ExperienceCard {
 export interface Game {
 	id: number;
 	game_name: string;
-	game_date: string; // ISO-дата
+	game_date: string; 
 	number_of_players: number;
 	difficulty_level: number;
 	number_of_losses: number;
 	experience: number;
-	win: number; // 0 або 1
+	win: number; 
 }
 
 export interface Player {
@@ -50,7 +50,7 @@ export interface Player {
 	ability_card_id_1: number | null;
 	ability_card_id_2: number | null;
 	ability_card_id_3: number | null;
-	captain: number; // 0 або 1
+	captain: number; 
 }
 
 export interface Character {
@@ -79,9 +79,9 @@ export interface Ship {
 	caboose: number;
 	cabin: number;
 	bridge: number;
-	last_action: number;        // ← виправлено: з string на number
+	last_action: number;        
 	page: number;
-	location: number;            // ← виправлено: з string на number
+	location: number;            
 	meat: number;
 	vegetables: number;
 	grain: number;

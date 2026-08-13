@@ -8,6 +8,8 @@ import HomeScreen from '../screens/HomeScreen';
 import NewGameScreen from '../screens/NewGameScreen';
 import SaveGamesScreen from '../screens/SaveGamesScreen';
 import GameScreen from '../screens/GameScreen';
+import ShipScreen from '../screens/ShipScreen';
+import GoodsScreen from '../screens/GoodsScreen';
 
 const Stack = createStackNavigator();
 
@@ -26,6 +28,8 @@ export default function AppNavigator() {
 				<Stack.Screen name="NewGame" component={NewGameScreen} />
 				<Stack.Screen name="SaveGames" component={SaveGamesScreen} />
 				<Stack.Screen name="Game" component={GameScreen} />
+				<Stack.Screen name="Ship" component={ShipScreen} />
+				<Stack.Screen name="Goods" component={GoodsScreen} />
 			</Stack.Navigator>
 		</NavigationContainer>
 	);
