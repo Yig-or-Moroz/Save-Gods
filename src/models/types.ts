@@ -13,20 +13,20 @@ export interface AbilityCard {
 export interface Good {
 	id: number;
 	name: string;
-	type: string; // наприклад, 'food', 'material', 'artifact'
+	type: string; // 'food', 'material', 'artifact' тощо
 }
 
 export interface EventCard {
 	id: number;
 	name: string;
 	type: string;
-	property_constantly: string; // або boolean, залежить від вашої гри
+	property_constantly: boolean; // ← виправлено з string на boolean
 }
 
 export interface ExperienceCard {
 	id: number;
 	name: string;
-	character_name_id: number; // посилання на character_names
+	character_name_id: number;
 }
 
 // ==================== ЗМІННІ ТАБЛИЦІ ====================
@@ -79,9 +79,9 @@ export interface Ship {
 	caboose: number;
 	cabin: number;
 	bridge: number;
-	last_action: string;
+	last_action: number;        // ← виправлено: з string на number
 	page: number;
-	location: string;
+	location: number;            // ← виправлено: з string на number
 	meat: number;
 	vegetables: number;
 	grain: number;
@@ -114,5 +114,5 @@ export interface AdventureDeck {
 	id: number;
 	game_id: number;
 	card_number: number;
-	totem: string; // або number, залежить від гри
+	totem: number; // ← виправлено: з string на number (0/1)
 }

@@ -5,65 +5,53 @@ import {
 	TouchableOpacity,
 	StyleSheet,
 	Image,
-	SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-const Logo = () => (
-	<View style={styles.logoContainer}>
-		<Image
-			source={require('../../assets/images/logo.png')}
-			style={{ width: 300, height: 150 }}
-			resizeMode="contain"
-		/>
-	</View>
-);
-
-const HomeScreen = () => {  // ← прибрали navigation
+const HomeScreen = ({ navigation }: any) => {  // ← додаємо navigation
 	const handleNewGame = () => {
-		alert('Створення нової гри');
-		// Тут буде перехід до екрана створення гри
+		navigation.navigate('NewGame');  // ← перехід на екран створення гри
 	};
 
 	const handleLoadGame = () => {
 		alert('Завантаження збереженої гри');
-		// Тут буде список збережених ігор
 	};
 
 	const handleSaveGame = () => {
 		alert('Збереження поточної гри');
-		// Тут буде логіка збереження
 	};
 
 	return (
 		<SafeAreaView style={styles.container}>
 			<View style={styles.content}>
-				<Logo />
-				<View style={styles.buttonGroup}>
-					<TouchableOpacity
-						style={[styles.button, styles.primaryButton]}
-						onPress={handleNewGame}
-					>
-						<Text style={styles.buttonText}>Нова гра</Text>
-					</TouchableOpacity>
+				<View style={styles.logoContainer}>
+					<Image
+						source={require('../../assets/images/logo.png')}
+						style={styles.img}
+						resizeMode="contain"
+					/>
+				</View>
 
-					<TouchableOpacity
-						style={[styles.button, styles.secondaryButton]}
-						onPress={handleLoadGame}
-					>
-						<Text style={styles.buttonText}>Завантажити гру</Text>
-					</TouchableOpacity>
+				<View style={styles.buttonWrapper}>
+					<View style={styles.buttonGroup}>
+						<TouchableOpacity style={styles.button} onPress={handleNewGame}>
+							<Text style={styles.buttonText}>Нова гра</Text>
+						</TouchableOpacity>
 
-					<TouchableOpacity
-						style={[styles.button, styles.secondaryButton]}
-						onPress={handleSaveGame}
-					>
-						<Text style={styles.buttonText}>Зберегти гру</Text>
-					</TouchableOpacity>
+						<TouchableOpacity style={styles.button} onPress={handleLoadGame}>
+							<Text style={styles.buttonText}>Завантажити гру</Text>
+						</TouchableOpacity>
+
+						<TouchableOpacity style={styles.button} onPress={handleSaveGame}>
+							<Text style={styles.buttonText}>Зберегти гру</Text>
+						</TouchableOpacity>
+					</View>
 				</View>
 			</View>
 		</SafeAreaView>
 	);
 };
+
 
 const styles = StyleSheet.create({
 	container: {
@@ -72,37 +60,46 @@ const styles = StyleSheet.create({
 	},
 	content: {
 		flex: 1,
-		justifyContent: "space-around",
-		alignItems: 'center',
-		padding: 20,
+		flexDirection: 'column', // вертикальне розташування
+		alignItems: 'center',    // горизонтальне центрування
+		paddingHorizontal: 30,
 	},
 	logoContainer: {
+		width: '100%',
+		height: 200,             // фіксована висота для логотипу
 		alignItems: 'center',
-		marginBottom: 10,
+		justifyContent: 'center', // центруємо зображення всередині (якщо воно менше)
+		flexShrink: 0,           // не дозволяємо стискатися
+	},
+	img: {
+		width: '100%',
+		height: '100%',          // займає всю висоту контейнера
+		resizeMode: 'contain',
+	},
+	buttonWrapper: {
+		flex: 1,                 // займає весь вільний простір після логотипу
+		width: '100%',
+		justifyContent: 'center', // центруємо дочірній buttonGroup по вертикалі
+		alignItems: 'center',
 	},
 	buttonGroup: {
 		width: '100%',
 		maxWidth: 300,
 		gap: 16,
+		paddingBottom: 20,      // невеликий відступ знизу (опціонально)
 	},
 	button: {
 		paddingVertical: 16,
 		borderRadius: 12,
 		alignItems: 'center',
 		justifyContent: 'center',
-	},
-	primaryButton: {
-		backgroundColor: '#691716',
-	},
-	secondaryButton: {
 		backgroundColor: '#004d57',
 	},
 	buttonText: {
-		fontSize: 18,
-		fontWeight: '600',
+		fontSize: 20,
 		color: '#ffffff',
 		letterSpacing: 1,
-		fontFamily: 'GolosText-Medium',
+		fontFamily: 'Kyiv-Machine',
 	},
 });
 

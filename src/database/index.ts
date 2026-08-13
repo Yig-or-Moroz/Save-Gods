@@ -117,26 +117,26 @@ export const initDatabase = async (): Promise<void> => {
     `);
 
 		await db.execAsync(`
-      CREATE TABLE IF NOT EXISTS ships (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        game_id INTEGER,
-        hull INTEGER,
-        deck INTEGER,
-        hospital INTEGER,
-        caboose INTEGER,
-        cabin INTEGER,
-        bridge INTEGER,
-        last_action TEXT,
-        page INTEGER,
-        location TEXT,
-        meat INTEGER,
-        vegetables INTEGER,
-        grain INTEGER,
-        materials INTEGER,
-        artifacts INTEGER,
-        coins INTEGER,
-        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
-      );
+		CREATE TABLE IF NOT EXISTS ships (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			game_id INTEGER,
+			hull INTEGER,
+			deck INTEGER,
+			hospital INTEGER,
+			caboose INTEGER,
+			cabin INTEGER,
+			bridge INTEGER,
+			last_action INTEGER,      -- ← тепер INTEGER
+			page INTEGER,
+			location INTEGER,         -- ← тепер INTEGER
+			meat INTEGER,
+			vegetables INTEGER,
+			grain INTEGER,
+			materials INTEGER,
+			artifacts INTEGER,
+			coins INTEGER,
+			FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+		);
     `);
 
 		await db.execAsync(`
@@ -257,5 +257,13 @@ export const initDatabase = async (): Promise<void> => {
 	}
 };
 
-// Експортуємо db для використання в інших місцях
+// Отримати всі імена персонажів (статичні дані)
+export const getCharacterNames = async (): Promise<{ id: number; name: string }[]> => {
+	const result = await db.getAllAsync<{ id: number; name: string }>(
+		'SELECT id, name FROM character_names ORDER BY id;'
+	);
+	return result;
+};
+
+
 export { db };

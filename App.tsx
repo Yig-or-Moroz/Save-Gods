@@ -1,18 +1,22 @@
+import 'react-native-gesture-handler';
 import React, { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import * as Font from 'expo-font';
 import { initDatabase } from './src/database';
-import HomeScreen from './src/screens/HomeScreen';
+import AppNavigator from './src/navigation/AppNavigator';
 
 // Імпорт шрифтів (замініть назви на свої)
 import GolosTextRegular from './assets/fonts/GolosText-Regular.ttf';
 import GolosTextMedium from './assets/fonts/GolosText-Medium.ttf';
+import KyivMachine from './assets/fonts/kyiv-machine.regular.ttf';
+
 
 // Функція завантаження шрифтів
 const loadFonts = async () => {
 	await Font.loadAsync({
 		'GolosText-Regular': GolosTextRegular,
 		'GolosText-Medium': GolosTextMedium,
+		'Kyiv-Machine': KyivMachine,
 	});
 };
 
@@ -23,18 +27,14 @@ export default function App() {
 	useEffect(() => {
 		async function prepare() {
 			try {
-				// Завантажуємо шрифти
 				await loadFonts();
-				// Ініціалізуємо базу даних
 				await initDatabase();
-				// Все готово
 				setAppIsReady(true);
 			} catch (err: any) {
 				console.error('❌ Помилка підготовки:', err);
 				setError(err.message);
 			}
 		}
-
 		prepare();
 	}, []);
 
@@ -55,7 +55,7 @@ export default function App() {
 		);
 	}
 
-	return <HomeScreen />;
+	return <AppNavigator />;
 }
 
 const styles = StyleSheet.create({
