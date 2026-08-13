@@ -9,6 +9,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const HomeScreen = ({ navigation }: any) => {  // ← додаємо navigation
+
+
 	const handleNewGame = () => {
 		navigation.navigate('NewGame');  // ← перехід на екран створення гри
 	};
@@ -18,7 +20,7 @@ const HomeScreen = ({ navigation }: any) => {  // ← додаємо navigation
 	};
 
 	const handleSaveGame = () => {
-		alert('Збереження поточної гри');
+		navigation.navigate('SaveGames');
 	};
 
 	return (

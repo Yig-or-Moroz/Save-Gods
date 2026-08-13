@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
 	View,
 	Text,
@@ -8,7 +8,6 @@ import {
 	StyleSheet,
 	Alert,
 	ActivityIndicator,
-	Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getCharacterNames, db } from '../database';
@@ -25,91 +24,6 @@ type Player = {
 	selectedCharacterIds: number[];
 };
 
-// Компонент анімованого чекбокса
-const AnimatedCheckbox = ({
-	character,
-	isSelected,
-	isAvailable,
-	onToggle,
-}: {
-	character: Character;
-	isSelected: boolean;
-	isAvailable: boolean;
-	onToggle: () => void;
-}) => {
-	const opacity = useRef(new Animated.Value(1)).current;
-	const scale = useRef(new Animated.Value(1)).current;
-
-	// Запускаємо анімацію при зміні доступності
-	useEffect(() => {
-		if (!isAvailable) {
-			// Анімація зникнення (розсипання – зменшення та прозорість)
-			Animated.parallel([
-				Animated.timing(opacity, {
-					toValue: 0,
-					duration: 350,
-					useNativeDriver: true,
-				}),
-				Animated.timing(scale, {
-					toValue: 0.3,
-					duration: 350,
-					useNativeDriver: true,
-				}),
-			]).start();
-		} else {
-			// Анімація появи
-			Animated.parallel([
-				Animated.timing(opacity, {
-					toValue: 1,
-					duration: 300,
-					useNativeDriver: true,
-				}),
-				Animated.timing(scale, {
-					toValue: 1,
-					duration: 300,
-					useNativeDriver: true,
-				}),
-			]).start();
-		}
-	}, [isAvailable]);
-
-	// Якщо елемент недоступний, він залишається в DOM з opacity: 0, але ми його не рендеримо, щоб зменшити кількість елементів
-	// Але щоб підтягування було плавним, ми використовуємо Animated.View з абсолютним позиціонуванням? Ні, простіше: будемо рендерити тільки доступні елементи, а недоступні приховаємо повністю.
-	// Проте тоді підтягування буде різким, бо елементи зникають миттєво.
-	// Щоб отримати плавне підтягування, ми можемо використовувати Animated з layout анімацією, але це складно без Reanimated.
-	// Найпростіше: рендерити всіх, але недоступні будуть з opacity: 0 і height: 0 (або scale: 0), що збереже місце? Ні, це не дасть підтягування.
-	// Тому ми підемо іншим шляхом: видаляємо елемент з масиву, а перед видаленням запускаємо анімацію, а після затримки видаляємо.
-	// Для цього нам потрібно мати локальний стан для кожного чекбокса – чи він у процесі видалення.
-	// Ми можемо зберігати список видимих персонажів у стані і оновлювати його після анімації.
-	// Це занадто складно для простого прикладу. Давайте спростимо: будемо рендерити всіх персонажів, але недоступні будуть з opacity: 0 і не клікабельні, займаючи місце. Тоді підтягування не буде, але не буде скачків.
-	// Це компроміс.
-
-	// Я запропоную третій варіант: рендеримо тільки доступних, але додаємо анімацію появи для нових елементів, щоб вони плавно з'являлися.
-	// Це не дасть ефекту "зникнення" при виборі, але дасть плавну появу при зміні вибору.
-	// Проте ви хочете саме зникнення. Тому повернемося до варіанту з opacity: 0 і scale: 0, але збережемо місце, щоб уникнути стрибків.
-	// Для цього ми можемо обернути кожен чекбокс у контейнер фіксованої висоти, але це не гнучко.
-
-	// Враховуючи складність, я пропоную спростити: не видаляти елементи, а просто робити їх неактивними (сірими) з opacity: 0.5, без зникнення.
-	// Ви вже мали такий варіант зі стилями. Це надійно і працює без анімацій.
-
-	// Але ви хочете анімацію. Тоді єдиний шлях – використовувати Reanimated з development build.
-	// Оскільки ви не хочете робити development build, я рекомендую повернутися до варіанту з сірими неактивними елементами.
-	// Він не дає анімації, але працює без скачків.
-
-	// Тому я поверну код до попереднього варіанту (без зникнення), але залишу стилі для недоступних.
-
-	// Якщо ви все ж хочете анімацію, доведеться перейти на власну збірку.
-
-	// Поки я поверну простий варіант без анімації зникнення.
-	// Але я додам анімацію появи для нових елементів (при зміні вибору) – це можна зробити через Animated.
-
-	// Оскільки час виходить, я запропоную остаточне рішення: використовувати стандартний Animated для появи і зникнення з opacity, але без зміни розмірів, і не видаляти елементи з масиву.
-	// Таким чином, елементи будуть плавно зникати/з'являтися, але місце залишатиметься, тому скачків не буде.
-	// Це компроміс, але він працює в Expo Go без додаткових бібліотек.
-
-	// Я реалізую цей підхід нижче.
-};
-
 const NewGameScreen = ({ navigation }: any) => {
 	const [isLoading, setIsLoading] = useState(true);
 	const [gameName, setGameName] = useState('');
@@ -122,6 +36,7 @@ const NewGameScreen = ({ navigation }: any) => {
 		const loadData = async () => {
 			try {
 				const data = await getCharacterNames();
+				// Виключаємо Капітана зі списку для вибору гравцями
 				const filtered = data.filter((c) => c.id !== 1);
 				setAllCharacters(filtered);
 				const initialPlayers: Player[] = Array.from({ length: playerCount }, (_, index) => ({
@@ -129,6 +44,10 @@ const NewGameScreen = ({ navigation }: any) => {
 					name: '',
 					selectedCharacterIds: [],
 				}));
+				// Якщо 1 гравець – призначаємо всіх персонажів (крім Капітана)
+				if (playerCount === 1) {
+					initialPlayers[0].selectedCharacterIds = filtered.map((c) => c.id);
+				}
 				setPlayers(initialPlayers);
 			} catch (error) {
 				console.error('Помилка завантаження персонажів:', error);
@@ -140,6 +59,7 @@ const NewGameScreen = ({ navigation }: any) => {
 		loadData();
 	}, []);
 
+	// Оновлення гравців при зміні кількості гравців
 	useEffect(() => {
 		if (allCharacters.length === 0) return;
 		const newPlayers: Player[] = Array.from({ length: playerCount }, (_, index) => ({
@@ -147,6 +67,10 @@ const NewGameScreen = ({ navigation }: any) => {
 			name: '',
 			selectedCharacterIds: [],
 		}));
+		// Якщо 1 гравець – призначаємо всіх персонажів (крім Капітана)
+		if (playerCount === 1) {
+			newPlayers[0].selectedCharacterIds = allCharacters.map((c) => c.id);
+		}
 		setPlayers(newPlayers);
 	}, [playerCount, allCharacters]);
 
@@ -173,7 +97,6 @@ const NewGameScreen = ({ navigation }: any) => {
 	};
 
 	const handleCreateGame = async () => {
-		// ... (без змін)
 		if (!gameName.trim()) {
 			Alert.alert('Помилка', 'Введіть назву гри');
 			return;
@@ -189,6 +112,13 @@ const NewGameScreen = ({ navigation }: any) => {
 			return;
 		}
 
+		// Перевірка, чи всі персонажі (крім Капітана) розподілені
+		const totalSelected = players.reduce((sum, p) => sum + p.selectedCharacterIds.length, 0);
+		if (totalSelected !== allCharacters.length) {
+			Alert.alert('Помилка', 'Всі персонажі повинні бути розподілені між гравцями');
+			return;
+		}
+
 		try {
 			const today = new Date().toISOString().split('T')[0];
 			const gameResult = await db.runAsync(
@@ -198,6 +128,7 @@ const NewGameScreen = ({ navigation }: any) => {
 			);
 			const gameId = gameResult.lastInsertRowId;
 
+			// Додаємо гравців та їхніх персонажів
 			for (const player of players) {
 				const playerResult = await db.runAsync(
 					`INSERT INTO players (game_id, name, team_tokens, ability_card_id_1, ability_card_id_2, ability_card_id_3, captain)
@@ -217,6 +148,16 @@ const NewGameScreen = ({ navigation }: any) => {
 					);
 				}
 			}
+
+			// Додаємо загального персонажа – Капітана Софі Одеса (id=1) з player_id = 0
+			await db.runAsync(
+				`INSERT INTO characters (
+          game_id, player_id, character_name_id,
+          damage, fatigue, fright, madness, poisoning, weakness, low_morale,
+          experience_card_id_1, experience_card_id_2, experience_card_id_3
+        ) VALUES (?, 0, 1, 0, 0, 0, 0, 0, 0, 0, NULL, NULL, NULL);`,
+				[gameId]
+			);
 
 			await db.runAsync(
 				`INSERT INTO ships (
