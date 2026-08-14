@@ -140,10 +140,11 @@ const NewGameScreen = ({ navigation }: any) => {
 				for (const characterId of player.selectedCharacterIds) {
 					await db.runAsync(
 						`INSERT INTO characters (
-              game_id, player_id, character_name_id,
-              damage, fatigue, fright, madness, poisoning, weakness, low_morale,
-              experience_card_id_1, experience_card_id_2, experience_card_id_3
-            ) VALUES (?, ?, ?, 0, 0, 0, 0, 0, 0, 0, NULL, NULL, NULL);`,
+							game_id, player_id, character_name_id,
+							damage, fatigue, fright, madness, poisoning, weakness, low_morale,
+							ability_card_id_1, ability_card_id_2,
+							experience_card_id_1, experience_card_id_2, experience_card_id_3
+						) VALUES (?, ?, ?, 0, 0, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL);`,
 						[gameId, playerId, characterId]
 					);
 				}
@@ -152,10 +153,11 @@ const NewGameScreen = ({ navigation }: any) => {
 			// Додаємо загального персонажа – Капітана Софі Одеса (id=1) з player_id = 0
 			await db.runAsync(
 				`INSERT INTO characters (
-          game_id, player_id, character_name_id,
-          damage, fatigue, fright, madness, poisoning, weakness, low_morale,
-          experience_card_id_1, experience_card_id_2, experience_card_id_3
-        ) VALUES (?, 0, 1, 0, 0, 0, 0, 0, 0, 0, NULL, NULL, NULL);`,
+					game_id, player_id, character_name_id,
+					damage, fatigue, fright, madness, poisoning, weakness, low_morale,
+					ability_card_id_1, ability_card_id_2,
+					experience_card_id_1, experience_card_id_2, experience_card_id_3
+        		) VALUES (?, 0, 1, 0, 0, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL);`,
 				[gameId]
 			);
 

@@ -317,7 +317,7 @@ const ShipScreen = ({ navigation, route }: any) => {
 				<Text style={styles.sectionTitle}>Наша локація:</Text>
 				<View style={styles.locationRow}>
 					<View style={styles.locationInput}>
-						<Text style={styles.locationLabel}>сторінка</Text>
+						<Text style={styles.locationLabel}>сторінка:</Text>
 						<TextInput
 							style={styles.inputSmall}
 							value={page}
@@ -327,7 +327,7 @@ const ShipScreen = ({ navigation, route }: any) => {
 						/>
 					</View>
 					<View style={styles.locationInput}>
-						<Text style={styles.locationLabel}>локація</Text>
+						<Text style={styles.locationLabel}>локація:</Text>
 						<TextInput
 							style={styles.inputSmall}
 							value={location}
@@ -341,14 +341,14 @@ const ShipScreen = ({ navigation, route }: any) => {
 				<Text style={styles.sectionTitle}>Ресурси:</Text>
 				<View style={styles.resourcesGrid}>
 					<View style={styles.resourceRow}>
-						<Text style={styles.resourceLabelL}>м'ясо</Text>
+						<Text style={styles.resourceLabelLeft}>м'ясо:</Text>
 						<TextInput
 							style={styles.inputResource}
 							value={meat}
 							onChangeText={setMeat}
 							keyboardType="numeric"
 						/>
-						<Text style={styles.resourceLabel}>матеріали</Text>
+						<Text style={styles.resourceLabel}>матеріали:</Text>
 						<TextInput
 							style={styles.inputResource}
 							value={materials}
@@ -357,14 +357,14 @@ const ShipScreen = ({ navigation, route }: any) => {
 						/>
 					</View>
 					<View style={styles.resourceRow}>
-						<Text style={styles.resourceLabelL}>овочі</Text>
+						<Text style={styles.resourceLabelLeft}>овочі:</Text>
 						<TextInput
 							style={styles.inputResource}
 							value={vegetables}
 							onChangeText={setVegetables}
 							keyboardType="numeric"
 						/>
-						<Text style={styles.resourceLabel}>артефакти</Text>
+						<Text style={styles.resourceLabel}>артефакти:</Text>
 						<TextInput
 							style={styles.inputResource}
 							value={artifacts}
@@ -373,14 +373,14 @@ const ShipScreen = ({ navigation, route }: any) => {
 						/>
 					</View>
 					<View style={styles.resourceRow}>
-						<Text style={styles.resourceLabelL}>зерно</Text>
+						<Text style={styles.resourceLabelLeft}>зерно:</Text>
 						<TextInput
 							style={styles.inputResource}
 							value={grain}
 							onChangeText={setGrain}
 							keyboardType="numeric"
 						/>
-						<Text style={styles.resourceLabel}>монети</Text>
+						<Text style={styles.resourceLabel}>монети:</Text>
 						<TextInput
 							style={styles.inputResource}
 							value={coins}
@@ -389,13 +389,6 @@ const ShipScreen = ({ navigation, route }: any) => {
 						/>
 					</View>
 				</View>
-
-				<TouchableOpacity
-					style={styles.propertyButton}
-					onPress={() => navigation.navigate('Goods', { gameId: gameId })}
-				>
-					<Text style={styles.propertyButtonText}>Майно</Text>
-				</TouchableOpacity>
 
 				<TouchableOpacity style={styles.saveButton} onPress={handleSave}>
 					<Text style={styles.saveButtonText}>Зберегти</Text>
@@ -490,7 +483,7 @@ const styles = StyleSheet.create({
 		borderRadius: 4,
 		borderWidth: 2,
 		borderColor: '#004d57',
-		marginRight: 20,
+		marginRight: 24,
 		backgroundColor: '#fff',
 		justifyContent: 'center',
 		alignItems: 'center',
@@ -502,6 +495,7 @@ const styles = StyleSheet.create({
 		width: 20,
 		height: 20,
 		backgroundColor: '#004d57',
+		borderRadius: 2,
 	},
 	radioGroup: {
 		flexDirection: 'row',
@@ -532,7 +526,7 @@ const styles = StyleSheet.create({
 	locationRow: {
 		flexDirection: 'row',
 		marginBottom: 16,
-		gap: 28,
+		gap: 34,
 	},
 	locationInput: {
 		flexDirection: 'row',
@@ -549,7 +543,7 @@ const styles = StyleSheet.create({
 		borderColor: '#ccc',
 		borderRadius: 8,
 		padding: 8,
-		width: 70,
+		width: 60,
 		fontSize: 16,
 		backgroundColor: '#fff',
 		textAlign: 'center',
@@ -561,7 +555,7 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		alignItems: 'center',
 		marginBottom: 10,
-		gap: 8,
+		gap: 12,
 	},
 	resourceLabel: {
 		fontSize: 16,
@@ -569,35 +563,21 @@ const styles = StyleSheet.create({
 		fontFamily: 'Kyiv-Machine',
 		width: 90,
 	},
-	resourceLabelL: {
+	resourceLabelLeft: {
 		fontSize: 16,
 		color: '#004d57',
 		fontFamily: 'Kyiv-Machine',
-		width: 65,
+		width: 70,
 	},
 	inputResource: {
 		borderWidth: 1,
 		borderColor: '#ccc',
 		borderRadius: 8,
 		padding: 8,
-		width: 70,
+		width: 60,
 		fontSize: 16,
 		backgroundColor: '#fff',
 		textAlign: 'center',
-	},
-	propertyButton: {
-		backgroundColor: '#fff',
-		paddingVertical: 14,
-		borderRadius: 10,
-		marginTop: 10,
-		borderWidth: 2,
-		borderColor: '#004d57',
-		alignItems: 'center',
-	},
-	propertyButtonText: {
-		fontSize: 20,
-		fontFamily: 'Kyiv-Machine',
-		color: '#004d57',
 	},
 	saveButton: {
 		backgroundColor: '#691716',

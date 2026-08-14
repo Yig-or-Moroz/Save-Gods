@@ -37,6 +37,7 @@ const GameScreen = ({ navigation, route }: any) => {
 	const [experience, setExperience] = useState('');
 	const [lossesCount, setLossesCount] = useState(0);
 	const [win, setWin] = useState(false);
+	const [selectedResult, setSelectedResult] = useState<'win' | 'loss' | null>(null);
 
 	useEffect(() => {
 		loadGameData();
@@ -59,6 +60,16 @@ const GameScreen = ({ navigation, route }: any) => {
 			setLossesCount(gameData.number_of_losses);
 			setWin(gameData.win === 1);
 
+			if (gameData.difficulty_level === 2) {
+				if (gameData.win === 1) {
+					setSelectedResult('win');
+				} else if (gameData.number_of_losses === 1) {
+					setSelectedResult('loss');
+				} else {
+					setSelectedResult(null);
+				}
+			}
+
 			const playersResult = await db.getAllAsync<Player>(
 				'SELECT id, name FROM players WHERE game_id = ? ORDER BY id;',
 				[gameId]
@@ -75,9 +86,25 @@ const GameScreen = ({ navigation, route }: any) => {
 	const handleSave = async () => {
 		try {
 			const expValue = parseInt(experience) || 0;
+			let winValue = win ? 1 : 0;
+			let lossesValue = lossesCount;
+
+			if (game && game.difficulty_level === 2) {
+				if (selectedResult === 'win') {
+					winValue = 1;
+					lossesValue = 0;
+				} else if (selectedResult === 'loss') {
+					winValue = 0;
+					lossesValue = 1;
+				} else {
+					winValue = 0;
+					lossesValue = 0;
+				}
+			}
+
 			await db.runAsync(
 				'UPDATE games SET experience = ?, number_of_losses = ?, win = ? WHERE id = ?;',
-				[expValue, lossesCount, win ? 1 : 0, gameId]
+				[expValue, lossesValue, winValue, gameId]
 			);
 			Alert.alert('Успіх', 'Дані збережено!', [
 				{ text: 'ОК', onPress: () => navigation.navigate('Home') }
@@ -98,6 +125,14 @@ const GameScreen = ({ navigation, route }: any) => {
 
 	const toggleWin = () => {
 		setWin(!win);
+	};
+
+	const handleResultSelect = (result: 'win' | 'loss') => {
+		if (selectedResult === result) {
+			setSelectedResult(null);
+		} else {
+			setSelectedResult(result);
+		}
 	};
 
 	if (isLoading) {
@@ -156,6 +191,21 @@ const GameScreen = ({ navigation, route }: any) => {
 
 					<TouchableOpacity
 						style={styles.navButton}
+						onPress={() => navigation.navigate('Goods', { gameId: game.id })}
+					>
+						<Text style={styles.navButtonText}>Майно</Text>
+					</TouchableOpacity>
+
+					{/* Нова кнопка "Колода пригод" */}
+					<TouchableOpacity
+						style={styles.navButton}
+						onPress={() => Alert.alert('Колода пригод', 'Тут буде екран колоди пригод')}
+					>
+						<Text style={styles.navButtonText}>Колода пригод</Text>
+					</TouchableOpacity>
+
+					<TouchableOpacity
+						style={styles.navButton}
 						onPress={() => Alert.alert('Колода подій', 'Тут буде екран колоди подій')}
 					>
 						<Text style={styles.navButtonText}>Колода подій</Text>
@@ -170,7 +220,7 @@ const GameScreen = ({ navigation, route }: any) => {
 				</View>
 
 				<View style={styles.field}>
-					<Text style={styles.label}>Досвід</Text>
+					<Text style={styles.label}>Досвід:</Text>
 					<TextInput
 						style={styles.input}
 						value={experience}
@@ -180,53 +230,61 @@ const GameScreen = ({ navigation, route }: any) => {
 					/>
 				</View>
 
-				<View style={styles.field}>
-					<Text style={styles.label}>Поразки</Text>
-					{isNormal ? (
-						<View style={styles.lossesRow}>
-							{[1, 2, 3, 4, 5, 6].map((num) => (
-								<TouchableOpacity
-									key={num}
-									style={[
-										styles.lossButton,
-										lossesCount === num && styles.lossButtonActive,
-									]}
-									onPress={() => toggleLoss(num)}
-								>
-									<Text
+				{isNormal ? (
+					<>
+						<View style={styles.field}>
+							<Text style={styles.label}>Поразки:</Text>
+							<View style={styles.lossesRow}>
+								{[1, 2, 3, 4, 5, 6].map((num) => (
+									<TouchableOpacity
+										key={num}
 										style={[
-											styles.lossButtonText,
-											lossesCount === num && styles.lossButtonTextActive,
+											styles.lossButton,
+											lossesCount === num && styles.lossButtonActive,
 										]}
+										onPress={() => toggleLoss(num)}
 									>
-										{num}
-									</Text>
-								</TouchableOpacity>
-							))}
+										<Text
+											style={[
+												styles.lossButtonText,
+												lossesCount === num && styles.lossButtonTextActive,
+											]}
+										>
+											{num}
+										</Text>
+									</TouchableOpacity>
+								))}
+							</View>
 						</View>
-					) : (
-						<TouchableOpacity
-							style={[styles.lossButton, lossesCount === 1 && styles.lossButtonActive]}
-							onPress={() => setLossesCount(lossesCount === 1 ? 0 : 1)}
-						>
-							<Text
-								style={[
-									styles.lossButtonText,
-									lossesCount === 1 && styles.lossButtonTextActive,
-								]}
-							>
-								{lossesCount === 1 ? '✓' : ' '}
-							</Text>
-						</TouchableOpacity>
-					)}
-				</View>
 
-				<View style={styles.field}>
-					<TouchableOpacity style={styles.winRow} onPress={toggleWin}>
-						<View style={[styles.checkbox, win && styles.checkboxChecked]} />
-						<Text style={styles.winText}>Win!</Text>
-					</TouchableOpacity>
-				</View>
+						<View style={styles.field}>
+							<TouchableOpacity style={styles.winRow} onPress={toggleWin}>
+								<View style={[styles.checkbox, win && styles.checkboxChecked]} />
+								<Text style={styles.winText}>Win!</Text>
+							</TouchableOpacity>
+						</View>
+					</>
+				) : (
+					<View style={styles.field}>
+						<Text style={styles.label}>Результат:</Text>
+						<View style={styles.hardResultRow}>
+							<TouchableOpacity
+								style={styles.hardResultButton}
+								onPress={() => handleResultSelect('win')}
+							>
+								<View style={[styles.radioCircle, selectedResult === 'win' && styles.radioSelected]} />
+								<Text style={styles.hardResultText}>Win!</Text>
+							</TouchableOpacity>
+							<TouchableOpacity
+								style={styles.hardResultButton}
+								onPress={() => handleResultSelect('loss')}
+							>
+								<View style={[styles.radioCircle, selectedResult === 'loss' && styles.radioSelected]} />
+								<Text style={styles.hardResultText}>Поразка!</Text>
+							</TouchableOpacity>
+						</View>
+					</View>
+				)}
 
 				<TouchableOpacity style={styles.saveButton} onPress={handleSave}>
 					<Text style={styles.saveButtonText}>Зберегти</Text>
@@ -331,12 +389,12 @@ const styles = StyleSheet.create({
 	},
 	lossesRow: {
 		flexDirection: 'row',
-		gap: 12,
+		gap: 18,
 	},
 	lossButton: {
-		width: 44,
+		width: 34,
 		height: 44,
-		borderRadius: 22,
+		borderRadius: 5,
 		borderWidth: 2,
 		borderColor: '#004d57',
 		alignItems: 'center',
@@ -360,8 +418,8 @@ const styles = StyleSheet.create({
 		marginTop: 8,
 	},
 	checkbox: {
-		width: 28,
-		height: 28,
+		width: 34,
+		height: 44,
 		borderRadius: 6,
 		borderWidth: 2,
 		borderColor: '#004d57',
@@ -373,6 +431,35 @@ const styles = StyleSheet.create({
 	},
 	winText: {
 		fontSize: 20,
+		fontFamily: 'Kyiv-Machine',
+		color: '#004d57',
+	},
+	hardResultRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		marginTop: 8,
+	},
+	hardResultButton: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		marginRight: 44,
+	},
+	radioCircle: {
+		width: 34,
+		height: 44,
+		borderRadius: 6,
+		borderWidth: 2,
+		borderColor: '#004d57',
+		marginRight: 8,
+		backgroundColor: '#fff',
+		justifyContent: 'center',
+		alignItems: 'center',
+	},
+	radioSelected: {
+		backgroundColor: '#004d57',
+	},
+	hardResultText: {
+		fontSize: 18,
 		fontFamily: 'Kyiv-Machine',
 		color: '#004d57',
 	},

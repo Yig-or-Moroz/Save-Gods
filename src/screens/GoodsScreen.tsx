@@ -22,12 +22,20 @@ type ChestGood = {
 	id: number;
 	game_id: number;
 	goods_id: number;
+	activated: number;
+};
+
+type ChestState = {
+	[goodsId: number]: {
+		added: boolean;
+		activated: boolean;
+	};
 };
 
 const GoodsScreen = ({ navigation, route }: any) => {
 	const { gameId } = route.params;
 	const [goods, setGoods] = useState<Good[]>([]);
-	const [chestGoods, setChestGoods] = useState<Set<number>>(new Set());
+	const [chestState, setChestState] = useState<ChestState>({});
 	const [isLoading, setIsLoading] = useState(true);
 
 	useEffect(() => {
@@ -36,31 +44,38 @@ const GoodsScreen = ({ navigation, route }: any) => {
 
 	const loadData = async () => {
 		try {
-			// 1. Отримуємо всі товари
 			const goodsResult = await db.getAllAsync<Good>(
 				'SELECT * FROM goods ORDER BY name;'
 			);
 			setGoods(goodsResult);
 
-			// 2. Отримуємо поточні товари в скрині
 			const chestResult = await db.getAllAsync<ChestGood>(
-				'SELECT goods_id FROM chest_goods WHERE game_id = ?;',
+				'SELECT goods_id, activated FROM chest_goods WHERE game_id = ?;',
 				[gameId]
 			);
-			const chestSet = new Set(chestResult.map((item) => item.goods_id));
 
-			// 3. Додаємо всі товари з типом "Стартова", яких ще немає в скрині
+			const initialChestState: ChestState = {};
+			chestResult.forEach((item) => {
+				initialChestState[item.goods_id] = {
+					added: true,
+					activated: item.activated === 1,
+				};
+			});
+
 			const starterGoods = goodsResult.filter((g) => g.type === 'Стартова');
-			let updatedChestSet = new Set(chestSet);
+			let updatedChestState = { ...initialChestState };
 			let addedCount = 0;
 
 			for (const good of starterGoods) {
-				if (!updatedChestSet.has(good.id)) {
+				if (!updatedChestState[good.id]) {
 					await db.runAsync(
-						'INSERT INTO chest_goods (game_id, goods_id) VALUES (?, ?);',
-						[gameId, good.id]
+						'INSERT INTO chest_goods (game_id, goods_id, activated) VALUES (?, ?, ?);',
+						[gameId, good.id, 0]
 					);
-					updatedChestSet.add(good.id);
+					updatedChestState[good.id] = {
+						added: true,
+						activated: false,
+					};
 					addedCount++;
 				}
 			}
@@ -69,7 +84,7 @@ const GoodsScreen = ({ navigation, route }: any) => {
 				console.log(`✅ Додано ${addedCount} стартових товарів до скрині`);
 			}
 
-			setChestGoods(updatedChestSet);
+			setChestState(updatedChestState);
 		} catch (error) {
 			console.error('Помилка завантаження майна:', error);
 			Alert.alert('Помилка', 'Не вдалося завантажити майно');
@@ -78,32 +93,36 @@ const GoodsScreen = ({ navigation, route }: any) => {
 		}
 	};
 
-	const toggleGood = async (goodId: number) => {
-		// Забороняємо знімати відмітку зі стартових товарів
+	const toggleAdd = async (goodId: number) => {
 		const good = goods.find((g) => g.id === goodId);
-		if (good && good.type === 'Стартова') {
-			Alert.alert('Увага', 'Стартове майно не можна видалити зі скрині');
+		if (!good || good.type === 'Стартова') {
+			Alert.alert('Увага', 'Стартове майно завжди додане до скрині');
 			return;
 		}
 
-		const isInChest = chestGoods.has(goodId);
+		const current = chestState[goodId];
+		const isAdded = current?.added || false;
+
 		try {
-			if (isInChest) {
+			if (isAdded) {
 				await db.runAsync(
 					'DELETE FROM chest_goods WHERE game_id = ? AND goods_id = ?;',
 					[gameId, goodId]
 				);
-				setChestGoods((prev) => {
-					const newSet = new Set(prev);
-					newSet.delete(goodId);
-					return newSet;
+				setChestState((prev) => {
+					const newState = { ...prev };
+					delete newState[goodId];
+					return newState;
 				});
 			} else {
 				await db.runAsync(
-					'INSERT INTO chest_goods (game_id, goods_id) VALUES (?, ?);',
-					[gameId, goodId]
+					'INSERT INTO chest_goods (game_id, goods_id, activated) VALUES (?, ?, ?);',
+					[gameId, goodId, 0]
 				);
-				setChestGoods((prev) => new Set(prev).add(goodId));
+				setChestState((prev) => ({
+					...prev,
+					[goodId]: { added: true, activated: false },
+				}));
 			}
 		} catch (error) {
 			console.error('Помилка зміни майна:', error);
@@ -111,33 +130,64 @@ const GoodsScreen = ({ navigation, route }: any) => {
 		}
 	};
 
+	const toggleActivated = async (goodId: number) => {
+		const current = chestState[goodId];
+		if (!current || !current.added) {
+			Alert.alert('Увага', 'Спочатку додайте товар до скрині');
+			return;
+		}
+
+		const newActivated = !current.activated;
+		try {
+			await db.runAsync(
+				'UPDATE chest_goods SET activated = ? WHERE game_id = ? AND goods_id = ?;',
+				[newActivated ? 1 : 0, gameId, goodId]
+			);
+			setChestState((prev) => ({
+				...prev,
+				[goodId]: { ...prev[goodId], activated: newActivated },
+			}));
+		} catch (error) {
+			console.error('Помилка активації майна:', error);
+			Alert.alert('Помилка', 'Не вдалося змінити стан активації');
+		}
+	};
+
 	const renderItem = ({ item }: { item: Good }) => {
-		const isChecked = chestGoods.has(item.id);
+		const state = chestState[item.id];
+		const isAdded = state?.added || false;
+		const isActivated = state?.activated || false;
 		const isStarter = item.type === 'Стартова';
 
 		return (
 			<TouchableOpacity
 				style={[styles.goodRow, isStarter && styles.starterRow]}
-				onPress={() => toggleGood(item.id)}
+				onPress={() => toggleAdd(item.id)}
 				activeOpacity={0.7}
-				disabled={isStarter} // Забороняємо натискання на стартові товари
+				disabled={isStarter} // стартові не реагують на натискання (залишаються доданими)
 			>
-				<View
-					style={[
-						styles.checkbox,
-						isChecked && styles.checkboxChecked,
-						isStarter && styles.checkboxStarter,
-					]}
-				/>
+				{/* Чекбокс "Додати" */}
+				<View style={[styles.checkbox, isAdded && styles.checkboxChecked, isStarter && styles.checkboxStarter]} />
+
 				<Text style={[styles.goodName, isStarter && styles.starterText]}>
 					{item.name}
 				</Text>
-				<Text style={[styles.goodType, isStarter && styles.starterText]}>
-					{item.type}
-				</Text>
-				{isStarter && (
-					<Text style={styles.starterBadge}></Text>
-				)}
+
+				{/* Чекбокс "Активовано" з збільшеною зоною натискання */}
+				<TouchableOpacity
+					style={styles.activateTouchArea}
+					onPress={() => toggleActivated(item.id)}
+					disabled={!isAdded}
+					hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+				>
+					<View
+						style={[
+							styles.checkbox,
+							isActivated && styles.checkboxChecked,
+							!isAdded && styles.checkboxDisabled,
+						]}
+					/>
+				</TouchableOpacity>
 			</TouchableOpacity>
 		);
 	};
@@ -161,6 +211,10 @@ const GoodsScreen = ({ navigation, route }: any) => {
 				</View>
 				<View style={styles.titleWrapper}>
 					<Text style={styles.header}>Майно</Text>
+				</View>
+				<View style={styles.subHeader}>
+					<Text style={styles.subHeaderText}>Придбано</Text>
+					<Text style={styles.subHeaderText}>Активовано</Text>
 				</View>
 			</View>
 
@@ -200,10 +254,7 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 16,
 		paddingTop: 16,
 		backgroundColor: '#f5f0e8',
-		borderWidth: 1,
-		borderLeftColor: '#f5f0e8',
-		borderTopColor: '#f5f0e8',
-		borderRightColor: '#f5f0e8',
+		borderBottomWidth: 1,
 		borderBottomColor: '#004d57',
 	},
 	backButtonWrapper: {
@@ -223,13 +274,24 @@ const styles = StyleSheet.create({
 	titleWrapper: {
 		alignSelf: 'center',
 		width: '100%',
-		marginBottom: 16,
+		marginBottom: 8,
 	},
 	header: {
 		fontSize: 28,
 		fontFamily: 'Kyiv-Machine',
 		color: '#004d57',
 		textAlign: 'center',
+	},
+	subHeader: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		paddingHorizontal: 16,
+		paddingBottom: 8,
+	},
+	subHeaderText: {
+		fontSize: 16,
+		fontFamily: 'Kyiv-Machine',
+		color: '#004d57',
 	},
 	listContent: {
 		padding: 20,
@@ -251,13 +313,22 @@ const styles = StyleSheet.create({
 		borderWidth: 1,
 		borderColor: '#691716',
 	},
+	goodName: {
+		fontSize: 18,
+		fontFamily: 'Kyiv-Machine',
+		color: '#004d57',
+		flex: 1,
+		marginHorizontal: 10,
+	},
+	starterText: {
+		color: '#691716',
+	},
 	checkbox: {
 		width: 24,
 		height: 24,
 		borderRadius: 4,
 		borderWidth: 2,
 		borderColor: '#004d57',
-		marginRight: 12,
 		backgroundColor: '#fff',
 	},
 	checkboxChecked: {
@@ -267,24 +338,14 @@ const styles = StyleSheet.create({
 		borderColor: '#691716',
 		backgroundColor: '#691716',
 	},
-	goodName: {
-		fontSize: 18,
-		fontFamily: 'Kyiv-Machine',
-		color: '#004d57',
-		flex: 1,
+	checkboxDisabled: {
+		borderColor: '#aaa',
+		backgroundColor: '#eee',
 	},
-	starterText: {
-		color: '#691716',
-	},
-	goodType: {
-		fontSize: 14,
-		color: '#888',
-		fontFamily: 'Kyiv-Machine',
-		marginRight: 8,
-	},
-	starterBadge: {
-		fontSize: 18,
-		color: '#004d57',
+	activateTouchArea: {
+		padding: 0,
+		margin: 0,
+		// Зона натискання збільшена через hitSlop
 	},
 	emptyText: {
 		fontSize: 18,

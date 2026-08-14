@@ -34,12 +34,12 @@ export interface ExperienceCard {
 export interface Game {
 	id: number;
 	game_name: string;
-	game_date: string; 
+	game_date: string;
 	number_of_players: number;
 	difficulty_level: number;
 	number_of_losses: number;
 	experience: number;
-	win: number; 
+	win: number;
 }
 
 export interface Player {
@@ -50,7 +50,7 @@ export interface Player {
 	ability_card_id_1: number | null;
 	ability_card_id_2: number | null;
 	ability_card_id_3: number | null;
-	captain: number; 
+	captain: number;
 }
 
 export interface Character {
@@ -65,6 +65,8 @@ export interface Character {
 	poisoning: number;
 	weakness: number;
 	low_morale: number;
+	ability_card_id_1: number | null;   // нове
+	ability_card_id_2: number | null;   // нове
 	experience_card_id_1: number | null;
 	experience_card_id_2: number | null;
 	experience_card_id_3: number | null;
@@ -79,9 +81,9 @@ export interface Ship {
 	caboose: number;
 	cabin: number;
 	bridge: number;
-	last_action: number;        
+	last_action: number;
 	page: number;
-	location: number;            
+	location: number;
 	meat: number;
 	vegetables: number;
 	grain: number;
@@ -94,6 +96,7 @@ export interface ChestGood {
 	id: number;
 	game_id: number;
 	goods_id: number;
+	activated: boolean;  // нове
 }
 
 export interface EventDeck {
@@ -114,5 +117,7 @@ export interface AdventureDeck {
 	id: number;
 	game_id: number;
 	card_number: number;
-	totem: number; // ← виправлено: з string на number (0/1)
+	name: string;        // нове
+	type: string;        // нове
+	totem: boolean;      // зміна типу з number на boolean
 }

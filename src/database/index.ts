@@ -92,28 +92,32 @@ export const initDatabase = async (): Promise<void> => {
     `);
 
 		await db.execAsync(`
-      CREATE TABLE IF NOT EXISTS characters (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        game_id INTEGER,
-        player_id INTEGER,
-        character_name_id INTEGER,
-        damage INTEGER DEFAULT 0,
-        fatigue INTEGER DEFAULT 0,
-        fright INTEGER DEFAULT 0,
-        madness INTEGER DEFAULT 0,
-        poisoning INTEGER DEFAULT 0,
-        weakness INTEGER DEFAULT 0,
-        low_morale INTEGER DEFAULT 0,
-        experience_card_id_1 INTEGER,
-        experience_card_id_2 INTEGER,
-        experience_card_id_3 INTEGER,
-        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
-        FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
-        FOREIGN KEY (character_name_id) REFERENCES character_names(id),
-        FOREIGN KEY (experience_card_id_1) REFERENCES experience_cards(id),
-        FOREIGN KEY (experience_card_id_2) REFERENCES experience_cards(id),
-        FOREIGN KEY (experience_card_id_3) REFERENCES experience_cards(id)
-      );
+			CREATE TABLE IF NOT EXISTS characters (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				game_id INTEGER,
+				player_id INTEGER,
+				character_name_id INTEGER,
+				damage INTEGER DEFAULT 0,
+				fatigue INTEGER DEFAULT 0,
+				fright INTEGER DEFAULT 0,
+				madness INTEGER DEFAULT 0,
+				poisoning INTEGER DEFAULT 0,
+				weakness INTEGER DEFAULT 0,
+				low_morale INTEGER DEFAULT 0,
+				ability_card_id_1 INTEGER,          -- нова колонка
+				ability_card_id_2 INTEGER,          -- нова колонка
+				experience_card_id_1 INTEGER,
+				experience_card_id_2 INTEGER,
+				experience_card_id_3 INTEGER,
+				FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+				FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
+				FOREIGN KEY (character_name_id) REFERENCES character_names(id),
+				FOREIGN KEY (ability_card_id_1) REFERENCES ability_cards(id),   -- якщо є таблиця ability_cards
+				FOREIGN KEY (ability_card_id_2) REFERENCES ability_cards(id),
+				FOREIGN KEY (experience_card_id_1) REFERENCES experience_cards(id),
+				FOREIGN KEY (experience_card_id_2) REFERENCES experience_cards(id),
+				FOREIGN KEY (experience_card_id_3) REFERENCES experience_cards(id)
+		);
     `);
 
 		await db.execAsync(`
@@ -140,13 +144,14 @@ export const initDatabase = async (): Promise<void> => {
     `);
 
 		await db.execAsync(`
-      CREATE TABLE IF NOT EXISTS chest_goods (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        game_id INTEGER,
-        goods_id INTEGER,
-        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
-        FOREIGN KEY (goods_id) REFERENCES goods(id)
-      );
+			CREATE TABLE IF NOT EXISTS chest_goods (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			game_id INTEGER,
+			goods_id INTEGER,
+			activated INTEGER DEFAULT 0,   -- нова колонка (0 = false, 1 = true)
+			FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+			FOREIGN KEY (goods_id) REFERENCES goods(id)
+		);
     `);
 
 		await db.execAsync(`
@@ -171,13 +176,15 @@ export const initDatabase = async (): Promise<void> => {
     `);
 
 		await db.execAsync(`
-      CREATE TABLE IF NOT EXISTS adventure_decks (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        game_id INTEGER,
-        card_number INTEGER,
-        totem TEXT,
-        FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
-      );
+			CREATE TABLE IF NOT EXISTS adventure_decks (
+				id INTEGER PRIMARY KEY AUTOINCREMENT,
+				game_id INTEGER,
+				card_number INTEGER,
+				name TEXT,                -- нова колонка
+				type TEXT,                -- нова колонка
+				totem INTEGER DEFAULT 0,  -- тепер boolean (0/1)
+				FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
+			);
     `);
 
 		// =====================================================
