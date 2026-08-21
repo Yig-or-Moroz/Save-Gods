@@ -149,7 +149,7 @@ const CharacterEditor = forwardRef<CharacterEditorRef, Props>(({ character, abil
 	return (
 		<View style={styles.container}>
 			<View style={[styles.field, styles.row]}>
-				<Text style={styles.label2}>Ушкодження</Text>
+				<Text style={styles.label2}>Ушкодження:</Text>
 				<TextInput
 					style={styles.inputSmall}
 					value={damage}
@@ -160,7 +160,7 @@ const CharacterEditor = forwardRef<CharacterEditorRef, Props>(({ character, abil
 			</View>
 
 			<View style={[styles.field, styles.row]}>
-				<Text style={styles.label2}>Жетони втоми</Text>
+				<Text style={styles.label2}>Жетони втоми:</Text>
 				<View style={styles.fatigueRow}>
 					<TouchableOpacity
 						style={styles.checkboxContainer}
