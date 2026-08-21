@@ -174,16 +174,21 @@ const GameScreen = ({ navigation, route }: any) => {
 
 					<TouchableOpacity
 						style={styles.navButton}
-						onPress={() => Alert.alert('Капітан Софі Одеса', 'Тут буде екран капітана')}
+						onPress={() => navigation.navigate('Captain', { gameId: game.id })}
 					>
 						<Text style={styles.navButtonText}>Капітан Софі Одеса</Text>
 					</TouchableOpacity>
+
 
 					{players.map((player) => (
 						<TouchableOpacity
 							key={player.id}
 							style={styles.navButton}
-							onPress={() => Alert.alert(`Гравець ${player.name}`, 'Тут буде екран гравця')}
+							onPress={() => navigation.navigate('Player', {
+								gameId: game.id,
+								playerId: player.id,
+								playerName: player.name
+							})}
 						>
 							<Text style={styles.navButtonText}>{player.name}</Text>
 						</TouchableOpacity>

@@ -62,16 +62,15 @@ const styles = StyleSheet.create({
 	},
 	content: {
 		flex: 1,
-		flexDirection: 'column', // вертикальне розташування
-		alignItems: 'center',    // горизонтальне центрування
+		flexDirection: 'column', 
+		alignItems: 'center',
+		justifyContent: 'space-between',
 		paddingHorizontal: 30,
+		paddingVertical: 100,
 	},
 	logoContainer: {
 		width: '100%',
-		height: 200,             // фіксована висота для логотипу
-		alignItems: 'center',
-		justifyContent: 'center', // центруємо зображення всередині (якщо воно менше)
-		flexShrink: 0,           // не дозволяємо стискатися
+		height: 120,
 	},
 	img: {
 		width: '100%',
