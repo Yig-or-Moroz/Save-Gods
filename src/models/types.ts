@@ -13,14 +13,14 @@ export interface AbilityCard {
 export interface Good {
 	id: number;
 	name: string;
-	type: string; // 'food', 'material', 'artifact' тощо
+	type: string; 
 }
 
 export interface EventCard {
 	id: number;
 	name: string;
 	type: string;
-	property_constantly: boolean; // ← виправлено з string на boolean
+	property_constantly: boolean; 
 }
 
 export interface ExperienceCard {
@@ -65,8 +65,8 @@ export interface Character {
 	poisoning: number;
 	weakness: number;
 	low_morale: number;
-	ability_card_id_1: number | null;   // нове
-	ability_card_id_2: number | null;   // нове
+	ability_card_id_1: number | null;   
+	ability_card_id_2: number | null;   
 	experience_card_id_1: number | null;
 	experience_card_id_2: number | null;
 	experience_card_id_3: number | null;
@@ -95,21 +95,21 @@ export interface Ship {
 export interface ChestGood {
 	id: number;
 	game_id: number;
-	goods_id: number;  // нове
+	goods_id: number;  
 }
 
 export interface EventDeck {
 	id: number;
 	game_id: number;
 	event_card_id: number;
-	remains_in_game: number; // 0 або 1
+	remains_in_game: number; 
 }
 
 export interface TaskDeck {
 	id: number;
 	game_id: number;
 	card_number: number;
-	done: number; // 0 або 1
+	done: number; 
 }
 
 export interface AdventureDeck {

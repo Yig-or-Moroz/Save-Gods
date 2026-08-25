@@ -7,6 +7,7 @@ import {
 	Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const HomeScreen = ({ navigation }: any) => {  // ← додаємо navigation
 
@@ -25,31 +26,42 @@ const HomeScreen = ({ navigation }: any) => {  // ← додаємо navigation
 
 	return (
 		<SafeAreaView style={styles.container}>
-			<View style={styles.content}>
-				<View style={styles.logoContainer}>
-					<Image
-						source={require('../../assets/images/logo.png')}
-						style={styles.img}
-						resizeMode="contain"
-					/>
-				</View>
+			<LinearGradient
+				colors={[
+					'#01878a',
+					'#0dc1c3',
+					'#08464f',
+				]}
+				start={{ x: 0, y: 0 }}
+				end={{ x: 0, y: 1 }}
+				style={styles.gradient}
+			>
+				<View style={styles.content}>
+					<View style={styles.logoContainer}>
+						<Image
+							source={require('../../assets/images/logo.png')}
+							style={styles.img}
+							resizeMode="contain"
+						/>
+					</View>
 
-				<View style={styles.buttonWrapper}>
-					<View style={styles.buttonGroup}>
-						<TouchableOpacity style={styles.button} onPress={handleNewGame}>
-							<Text style={styles.buttonText}>Нова гра</Text>
-						</TouchableOpacity>
+					<View style={styles.buttonWrapper}>
+						<View style={styles.buttonGroup}>
+							<TouchableOpacity style={styles.button} onPress={handleNewGame}>
+								<Text style={styles.buttonText}>Нова гра</Text>
+							</TouchableOpacity>
 
-						<TouchableOpacity style={styles.button} onPress={handleLoadGame}>
-							<Text style={styles.buttonText}>Завантажити гру</Text>
-						</TouchableOpacity>
+							<TouchableOpacity style={styles.button} onPress={handleLoadGame}>
+								<Text style={styles.buttonText}>Завантажити гру</Text>
+							</TouchableOpacity>
 
-						<TouchableOpacity style={styles.button} onPress={handleSaveGame}>
-							<Text style={styles.buttonText}>Зберегти гру</Text>
-						</TouchableOpacity>
+							<TouchableOpacity style={styles.button} onPress={handleSaveGame}>
+								<Text style={styles.buttonText}>Зберегти гру</Text>
+							</TouchableOpacity>
+						</View>
 					</View>
 				</View>
-			</View>
+			</LinearGradient>
 		</SafeAreaView>
 	);
 };
@@ -60,9 +72,12 @@ const styles = StyleSheet.create({
 		flex: 1,
 		backgroundColor: '#e8ddc9',
 	},
+	gradient: {
+		flex: 1,
+	},
 	content: {
 		flex: 1,
-		flexDirection: 'column', 
+		flexDirection: 'column',
 		alignItems: 'center',
 		justifyContent: 'space-between',
 		paddingHorizontal: 30,
