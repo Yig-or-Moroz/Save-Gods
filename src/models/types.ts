@@ -103,6 +103,7 @@ export interface EventDeck {
 	game_id: number;
 	event_card_id: number;
 	remains_in_game: number; 
+	order_number: number;
 }
 
 export interface TaskDeck {

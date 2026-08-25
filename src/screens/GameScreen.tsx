@@ -211,7 +211,7 @@ const GameScreen = ({ navigation, route }: any) => {
 
 					<TouchableOpacity
 						style={styles.navButton}
-						onPress={() => Alert.alert('Колода подій', 'Тут буде екран колоди подій')}
+						onPress={() => navigation.navigate('EventDeck', { gameId: game.id })}
 					>
 						<Text style={styles.navButtonText}>Колода подій</Text>
 					</TouchableOpacity>

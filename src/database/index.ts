@@ -159,7 +159,8 @@ export const initDatabase = async (): Promise<void> => {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         game_id INTEGER,
         event_card_id INTEGER,
-        remains_in_game INTEGER DEFAULT 1,
+        remains_in_game INTEGER DEFAULT 0,
+		  order_number INTEGER,
         FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
         FOREIGN KEY (event_card_id) REFERENCES event_cards(id)
       );
