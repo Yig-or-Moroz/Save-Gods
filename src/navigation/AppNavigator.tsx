@@ -12,6 +12,7 @@ import ShipScreen from '../screens/ShipScreen';
 import GoodsScreen from '../screens/GoodsScreen';
 import CaptainScreen from '../screens/CaptainScreen';
 import PlayerScreen from '../screens/PlayerScreen';
+import AdventureDeckScreen from '../screens/AdventureDeckScreen';
 
 const Stack = createStackNavigator();
 
@@ -34,6 +35,7 @@ export default function AppNavigator() {
 				<Stack.Screen name="Goods" component={GoodsScreen} />
 				<Stack.Screen name="Captain" component={CaptainScreen} />
 				<Stack.Screen name="Player" component={PlayerScreen} />
+				<Stack.Screen name="AdventureDeck" component={AdventureDeckScreen} />
 			</Stack.Navigator>
 		</NavigationContainer>
 	);

@@ -547,6 +547,7 @@ const styles = StyleSheet.create({
 		fontSize: 16,
 		backgroundColor: '#fff',
 		textAlign: 'center',
+		fontFamily: 'Kyiv-Machine',
 	},
 	resourcesGrid: {
 		marginBottom: 16,
@@ -578,6 +579,7 @@ const styles = StyleSheet.create({
 		fontSize: 16,
 		backgroundColor: '#fff',
 		textAlign: 'center',
+		fontFamily: 'Kyiv-Machine',
 	},
 	saveButton: {
 		backgroundColor: '#691716',

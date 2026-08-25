@@ -156,6 +156,7 @@ const CharacterEditor = forwardRef<CharacterEditorRef, Props>(({ character, abil
 					onChangeText={setDamage}
 					keyboardType="numeric"
 					maxLength={1}
+					placeholder="0"
 				/>
 			</View>
 

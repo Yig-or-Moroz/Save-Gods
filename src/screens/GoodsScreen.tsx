@@ -159,34 +159,65 @@ const GoodsScreen = ({ navigation, route }: any) => {
 		const isActivated = state?.activated || false;
 		const isStarter = item.type === 'Стартова';
 
+		// Стиль рядка
+		const rowStyle = [
+			styles.goodRow,
+			isAdded ? styles.goodRowAdded : null,
+			isStarter ? styles.starterRow : null,
+		];
+
+		// Стиль назви
+		const nameStyle = [
+			styles.goodName,
+			isAdded ? styles.goodNameAdded : null,
+			isStarter ? styles.starterText : null,
+		];
+
+		// Стиль лівої галочки
+		const checkStyle = [
+			styles.checkbox,
+			isAdded ? styles.checkboxChecked : null,
+			isStarter ? styles.checkboxStarter : null,
+		];
+
+		// Стиль правої кнопки "А"
+		let activateStyle;
+		if (!isAdded) {
+			activateStyle = [styles.activateBox, styles.activateBoxDisabled];
+		} else if (isActivated) {
+			activateStyle = [styles.activateBox, styles.activateBoxActive];
+		} else {
+			activateStyle = [styles.activateBox, styles.activateBoxVisible];
+		}
+
+		const activateTextStyle = [
+			styles.activateText,
+			isActivated ? styles.activateTextActive : null,
+			!isAdded ? styles.activateTextDisabled : null,
+		];
+
 		return (
 			<TouchableOpacity
-				style={[styles.goodRow, isStarter && styles.starterRow]}
+				style={rowStyle}
 				onPress={() => toggleAdd(item.id)}
 				activeOpacity={0.7}
-				disabled={isStarter} // стартові не реагують на натискання (залишаються доданими)
+				disabled={isStarter}
 			>
-				{/* Чекбокс "Додати" */}
-				<View style={[styles.checkbox, isAdded && styles.checkboxChecked, isStarter && styles.checkboxStarter]} />
+				{/* Ліва галочка */}
+				<View style={checkStyle}>
+					{isAdded && <Text style={styles.checkmark}>✓</Text>}
+				</View>
 
-				<Text style={[styles.goodName, isStarter && styles.starterText]}>
-					{item.name}
-				</Text>
+				<Text style={nameStyle}>{item.name}</Text>
 
-				{/* Чекбокс "Активовано" з збільшеною зоною натискання */}
+				{/* Права кнопка "А" */}
 				<TouchableOpacity
-					style={styles.activateTouchArea}
+					style={activateStyle}
 					onPress={() => toggleActivated(item.id)}
 					disabled={!isAdded}
 					hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
 				>
-					<View
-						style={[
-							styles.checkbox,
-							isActivated && styles.checkboxChecked,
-							!isAdded && styles.checkboxDisabled,
-						]}
-					/>
+					<Text style={activateTextStyle}>А</Text>
 				</TouchableOpacity>
 			</TouchableOpacity>
 		);
@@ -212,10 +243,7 @@ const GoodsScreen = ({ navigation, route }: any) => {
 				<View style={styles.titleWrapper}>
 					<Text style={styles.header}>Майно</Text>
 				</View>
-				<View style={styles.subHeader}>
-					<Text style={styles.subHeaderText}>Придбано</Text>
-					<Text style={styles.subHeaderText}>Активовано</Text>
-				</View>
+
 			</View>
 
 			<FlatList
@@ -227,6 +255,10 @@ const GoodsScreen = ({ navigation, route }: any) => {
 					<Text style={styles.emptyText}>Немає товарів</Text>
 				}
 			/>
+			<View style={styles.footer}>
+				<Text style={styles.subHeaderTextA}>А</Text>
+				<Text style={styles.subHeaderText}>- картку активовано</Text>
+			</View>
 		</SafeAreaView>
 	);
 };
@@ -282,16 +314,31 @@ const styles = StyleSheet.create({
 		color: '#004d57',
 		textAlign: 'center',
 	},
-	subHeader: {
+	footer: {
+		height: 60,
 		flexDirection: 'row',
-		justifyContent: 'space-between',
+		justifyContent: 'flex-start',
+		alignItems: 'center',
 		paddingHorizontal: 16,
-		paddingBottom: 8,
+		paddingVertical: 8,
+		gap: 4,
+		borderTopWidth: 1,
+		borderTopColor: '#004d57',
 	},
 	subHeaderText: {
 		fontSize: 16,
 		fontFamily: 'Kyiv-Machine',
 		color: '#004d57',
+	},
+	subHeaderTextA: {
+		width: 26,
+		height: 26,
+		textAlign: 'center',
+		borderRadius: 4,
+		backgroundColor: '#004d57',
+		fontSize: 22,
+		fontFamily: 'Kyiv-Machine',
+		color: '#fff',
 	},
 	listContent: {
 		padding: 20,
@@ -308,6 +355,9 @@ const styles = StyleSheet.create({
 		shadowRadius: 2,
 		elevation: 1,
 	},
+	goodRowAdded: {
+		backgroundColor: '#004d57',
+	},
 	starterRow: {
 		backgroundColor: '#f5f0e8',
 		borderWidth: 1,
@@ -320,32 +370,67 @@ const styles = StyleSheet.create({
 		flex: 1,
 		marginHorizontal: 10,
 	},
+	goodNameAdded: {
+		color: '#fff',
+	},
 	starterText: {
 		color: '#691716',
 	},
 	checkbox: {
-		width: 24,
-		height: 24,
+		width: 28,
+		height: 28,
+		borderRadius: 4,
+		borderWidth: 2,
+		borderColor: '#fff',
+		backgroundColor: '#fff',
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
+	checkboxChecked: {
+		backgroundColor: '#004d57',
+		borderColor: '#004d57',
+	},
+	checkboxStarter: {
+		borderColor: '#f5f0e8',
+		backgroundColor: '#f5f0e8',
+	},
+	checkmark: {
+		color: '#fff',
+		fontSize: 18,
+		fontWeight: 'bold',
+	},
+	activateBox: {
+		width: 34,
+		height: 34,
 		borderRadius: 4,
 		borderWidth: 2,
 		borderColor: '#004d57',
 		backgroundColor: '#fff',
+		alignItems: 'center',
+		justifyContent: 'center',
 	},
-	checkboxChecked: {
+	activateBoxVisible: {
+		borderColor: '#fff',
+		backgroundColor: '#fff',
+	},
+	activateBoxActive: {
 		backgroundColor: '#004d57',
 	},
-	checkboxStarter: {
-		borderColor: '#691716',
-		backgroundColor: '#691716',
-	},
-	checkboxDisabled: {
-		borderColor: '#aaa',
+	activateBoxDisabled: {
+		borderColor: '#ccc',
 		backgroundColor: '#eee',
+		opacity: 0.0,
 	},
-	activateTouchArea: {
-		padding: 0,
-		margin: 0,
-		// Зона натискання збільшена через hitSlop
+	activateText: {
+		fontSize: 30,
+		fontFamily: 'Kyiv-Machine',
+		color: '#aaa',
+	},
+	activateTextActive: {
+		color: '#fff',
+	},
+	activateTextDisabled: {
+		color: '#aaa',
 	},
 	emptyText: {
 		fontSize: 18,
