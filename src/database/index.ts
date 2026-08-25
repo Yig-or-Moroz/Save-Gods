@@ -180,9 +180,10 @@ export const initDatabase = async (): Promise<void> => {
 				id INTEGER PRIMARY KEY AUTOINCREMENT,
 				game_id INTEGER,
 				card_number INTEGER,
-				name TEXT,                -- нова колонка
-				type TEXT,                -- нова колонка
-				totem INTEGER DEFAULT 0,  -- тепер boolean (0/1)
+				name TEXT,                
+				type TEXT,                
+				totem INTEGER DEFAULT 0,  
+				activated INTEGER DEFAULT 0,
 				FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE
 			);
     `);

@@ -95,8 +95,7 @@ export interface Ship {
 export interface ChestGood {
 	id: number;
 	game_id: number;
-	goods_id: number;
-	activated: boolean;  // нове
+	goods_id: number;  // нове
 }
 
 export interface EventDeck {
@@ -117,7 +116,8 @@ export interface AdventureDeck {
 	id: number;
 	game_id: number;
 	card_number: number;
-	name: string;        // нове
-	type: string;        // нове
-	totem: boolean;      // зміна типу з number на boolean
+	name: string;        
+	type: string;        
+	totem: boolean; 
+	activated: boolean;     
 }

@@ -22,6 +22,7 @@ type AdventureCard = {
 	name: string;
 	type: string;
 	totem: number; // 0 або 1
+	activated: number; // 0 або 1 – нове поле
 };
 
 const AdventureDeckScreen = ({ navigation, route }: any) => {
@@ -68,10 +69,11 @@ const AdventureDeckScreen = ({ navigation, route }: any) => {
 		}
 
 		try {
+			// Додаємо activated = 0 за замовчуванням
 			await db.runAsync(
-				`INSERT INTO adventure_decks (game_id, card_number, name, type, totem)
-         VALUES (?, ?, ?, ?, ?);`,
-				[gameId, num, cardName.trim(), cardType, totem ? 1 : 0]
+				`INSERT INTO adventure_decks (game_id, card_number, name, type, totem, activated)
+         VALUES (?, ?, ?, ?, ?, ?);`,
+				[gameId, num, cardName.trim(), cardType, totem ? 1 : 0, 0]
 			);
 			// Очищаємо форму
 			setCardNumber('');
@@ -112,11 +114,43 @@ const AdventureDeckScreen = ({ navigation, route }: any) => {
 		);
 	};
 
+	// Переключення активації картки
+	const toggleActivated = async (cardId: number, currentActivated: number) => {
+		const newValue = currentActivated === 1 ? 0 : 1;
+		try {
+			await db.runAsync(
+				'UPDATE adventure_decks SET activated = ? WHERE id = ?;',
+				[newValue, cardId]
+			);
+			// Оновлюємо локальний стан
+			setCards((prevCards) =>
+				prevCards.map((card) =>
+					card.id === cardId ? { ...card, activated: newValue } : card
+				)
+			);
+		} catch (error) {
+			console.error('Помилка активації картки:', error);
+			Alert.alert('Помилка', 'Не вдалося змінити стан активації');
+		}
+	};
+
 	const renderCard = ({ item }: { item: AdventureCard }) => (
 		<View style={styles.cardItem}>
 			<Text style={styles.cardNumber}>{item.card_number}</Text>
 			<Text style={styles.cardName}>{item.name}</Text>
 			<Text style={styles.cardTotem}>{item.totem === 1 ? '🐾' : ''}</Text>
+
+			{/* Чекбокс "А" для активації */}
+			<TouchableOpacity
+				style={[styles.activateBox, item.activated === 1 && styles.activateBoxActive]}
+				onPress={() => toggleActivated(item.id, item.activated)}
+				hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+			>
+				<Text style={[styles.activateText, item.activated === 1 && styles.activateTextActive]}>
+					А
+				</Text>
+			</TouchableOpacity>
+
 			<TouchableOpacity
 				style={styles.deleteButton}
 				onPress={() => handleDeleteCard(item.id, item.name)}
@@ -224,6 +258,10 @@ const AdventureDeckScreen = ({ navigation, route }: any) => {
 					/>
 				)}
 			</ScrollView>
+			<View style={styles.footer}>
+				<Text style={styles.subHeaderTextA}>А</Text>
+				<Text style={styles.subHeaderText}>- картку активовано</Text>
+			</View>
 		</SafeAreaView>
 	);
 };
@@ -384,7 +422,7 @@ const styles = StyleSheet.create({
 		fontSize: 16,
 		fontFamily: 'Kyiv-Machine',
 		color: '#004d57',
-		width: 50,
+		width: 30,
 	},
 	cardName: {
 		fontSize: 16,
@@ -397,6 +435,28 @@ const styles = StyleSheet.create({
 		color: '#004d57',
 		marginRight: 10,
 	},
+	activateBox: {
+		width: 28,
+		height: 28,
+		borderRadius: 4,
+		borderWidth: 2,
+		borderColor: '#004d57',
+		backgroundColor: '#fff',
+		alignItems: 'center',
+		justifyContent: 'center',
+		marginRight: 8,
+	},
+	activateBoxActive: {
+		backgroundColor: '#004d57',
+	},
+	activateText: {
+		fontSize: 20,
+		fontFamily: 'Kyiv-Machine',
+		color: '#aaa',
+	},
+	activateTextActive: {
+		color: '#fff',
+	},
 	deleteButton: {
 		padding: 4,
 	},
@@ -406,6 +466,32 @@ const styles = StyleSheet.create({
 		fontFamily: 'Kyiv-Machine',
 		textAlign: 'center',
 		marginTop: 20,
+	},
+	footer: {
+		height: 60,
+		flexDirection: 'row',
+		justifyContent: 'flex-start',
+		alignItems: 'center',
+		paddingHorizontal: 16,
+		paddingVertical: 8,
+		gap: 4,
+		borderTopWidth: 1,
+		borderTopColor: '#004d57',
+	},
+	subHeaderText: {
+		fontSize: 16,
+		fontFamily: 'Kyiv-Machine',
+		color: '#004d57',
+	},
+	subHeaderTextA: {
+		width: 26,
+		height: 26,
+		textAlign: 'center',
+		borderRadius: 4,
+		backgroundColor: '#004d57',
+		fontSize: 22,
+		fontFamily: 'Kyiv-Machine',
+		color: '#fff',
 	},
 });
 

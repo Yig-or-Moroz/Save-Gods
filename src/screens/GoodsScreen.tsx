@@ -400,8 +400,8 @@ const styles = StyleSheet.create({
 		fontWeight: 'bold',
 	},
 	activateBox: {
-		width: 34,
-		height: 34,
+		width: 30,
+		height: 30,
 		borderRadius: 4,
 		borderWidth: 2,
 		borderColor: '#004d57',
@@ -422,7 +422,7 @@ const styles = StyleSheet.create({
 		opacity: 0.0,
 	},
 	activateText: {
-		fontSize: 30,
+		fontSize: 24,
 		fontFamily: 'Kyiv-Machine',
 		color: '#aaa',
 	},
