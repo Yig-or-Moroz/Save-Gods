@@ -9,15 +9,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const HomeScreen = ({ navigation }: any) => {  // ← додаємо navigation
+const HomeScreen = ({ navigation }: any) => {  
 
 
 	const handleNewGame = () => {
-		navigation.navigate('NewGame');  // ← перехід на екран створення гри
+		navigation.navigate('NewGame');  
 	};
 
 	const handleLoadGame = () => {
-		alert('Завантаження збереженої гри');
+		navigation.navigate('LoadGame'); 
 	};
 
 	const handleSaveGame = () => {
@@ -52,7 +52,7 @@ const HomeScreen = ({ navigation }: any) => {  // ← додаємо navigation
 							</TouchableOpacity>
 
 							<TouchableOpacity style={styles.button} onPress={handleLoadGame}>
-								<Text style={styles.buttonText}>Завантажити гру</Text>
+								<Text style={styles.buttonText}>Розкласти гру</Text>
 							</TouchableOpacity>
 
 							<TouchableOpacity style={styles.button} onPress={handleSaveGame}>

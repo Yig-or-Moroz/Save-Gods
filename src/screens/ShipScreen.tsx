@@ -24,7 +24,7 @@ type ShipData = {
 	bridge: number;
 	last_action: number;
 	page: number;
-	location: number;
+	location: string;
 	meat: number;
 	vegetables: number;
 	grain: number;
@@ -102,7 +102,7 @@ const ShipScreen = ({ navigation, route }: any) => {
 		setBridge(data.bridge);
 		setLastAction(data.last_action);
 		setPage(data.page.toString());
-		setLocation(data.location.toString());
+		setLocation(data.location);
 		setMeat(data.meat.toString());
 		setVegetables(data.vegetables.toString());
 		setGrain(data.grain.toString());
@@ -140,7 +140,7 @@ const ShipScreen = ({ navigation, route }: any) => {
 					bridge,
 					lastAction,
 					parseInt(page) || 0,
-					parseInt(location) || 0,
+					location,
 					parseInt(meat) || 0,
 					parseInt(vegetables) || 0,
 					parseInt(grain) || 0,
@@ -299,7 +299,7 @@ const ShipScreen = ({ navigation, route }: any) => {
 					</View>
 				</View>
 
-				<Text style={styles.sectionTitle}>Остання дія:</Text>
+				<Text style={styles.sectionTitle}>Остання дія корабля:</Text>
 				<View style={styles.radioGroup}>
 					{[1, 2, 3, 4, 5, 6].map((num) => (
 						<TouchableOpacity
@@ -332,7 +332,6 @@ const ShipScreen = ({ navigation, route }: any) => {
 							style={styles.inputSmall}
 							value={location}
 							onChangeText={setLocation}
-							keyboardType="numeric"
 							maxLength={6}
 						/>
 					</View>

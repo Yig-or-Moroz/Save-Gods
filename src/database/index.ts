@@ -104,15 +104,15 @@ export const initDatabase = async (): Promise<void> => {
 				poisoning INTEGER DEFAULT 0,
 				weakness INTEGER DEFAULT 0,
 				low_morale INTEGER DEFAULT 0,
-				ability_card_id_1 INTEGER,          -- нова колонка
-				ability_card_id_2 INTEGER,          -- нова колонка
+				ability_card_id_1 INTEGER,         
+				ability_card_id_2 INTEGER,         
 				experience_card_id_1 INTEGER,
 				experience_card_id_2 INTEGER,
 				experience_card_id_3 INTEGER,
 				FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
 				FOREIGN KEY (player_id) REFERENCES players(id) ON DELETE CASCADE,
 				FOREIGN KEY (character_name_id) REFERENCES character_names(id),
-				FOREIGN KEY (ability_card_id_1) REFERENCES ability_cards(id),   -- якщо є таблиця ability_cards
+				FOREIGN KEY (ability_card_id_1) REFERENCES ability_cards(id),  
 				FOREIGN KEY (ability_card_id_2) REFERENCES ability_cards(id),
 				FOREIGN KEY (experience_card_id_1) REFERENCES experience_cards(id),
 				FOREIGN KEY (experience_card_id_2) REFERENCES experience_cards(id),
@@ -130,9 +130,9 @@ export const initDatabase = async (): Promise<void> => {
 			caboose INTEGER,
 			cabin INTEGER,
 			bridge INTEGER,
-			last_action INTEGER,      -- ← тепер INTEGER
+			last_action INTEGER,      
 			page INTEGER,
-			location INTEGER,         -- ← тепер INTEGER
+			location TEXT,         
 			meat INTEGER,
 			vegetables INTEGER,
 			grain INTEGER,

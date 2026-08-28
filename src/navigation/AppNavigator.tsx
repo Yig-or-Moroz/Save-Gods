@@ -15,6 +15,8 @@ import PlayerScreen from '../screens/PlayerScreen';
 import AdventureDeckScreen from '../screens/AdventureDeckScreen';
 import TaskDeckScreen from '../screens/TaskDeckScreen';
 import EventDeckScreen from '../screens/EventDeckScreen';
+import LoadGameScreen from '../screens/LoadGameScreen';
+import LayoutGameScreen from '../screens/LayoutGameScreen';
 
 const Stack = createStackNavigator();
 
@@ -40,6 +42,8 @@ export default function AppNavigator() {
 				<Stack.Screen name="AdventureDeck" component={AdventureDeckScreen} />
 				<Stack.Screen name="TaskDeck" component={TaskDeckScreen} />
 				<Stack.Screen name="EventDeck" component={EventDeckScreen} />
+				<Stack.Screen name="LoadGame" component={LoadGameScreen} />
+				<Stack.Screen name="LayoutGame" component={LayoutGameScreen} />
 			</Stack.Navigator>
 		</NavigationContainer>
 	);

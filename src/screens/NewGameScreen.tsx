@@ -166,7 +166,7 @@ const NewGameScreen = ({ navigation }: any) => {
           game_id, hull, deck, hospital, caboose, cabin, bridge,
           last_action, page, location,
           meat, vegetables, grain, materials, artifacts, coins
-        ) VALUES (?, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);`,
+        ) VALUES (?, 0, 0, 0, 0, 0, 0, 0, 0, '', 0, 0, 0, 0, 0, 0);`,
 				[gameId]
 			);
 

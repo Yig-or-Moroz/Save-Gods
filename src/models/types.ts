@@ -83,7 +83,7 @@ export interface Ship {
 	bridge: number;
 	last_action: number;
 	page: number;
-	location: number;
+	location: string;
 	meat: number;
 	vegetables: number;
 	grain: number;
@@ -95,7 +95,8 @@ export interface Ship {
 export interface ChestGood {
 	id: number;
 	game_id: number;
-	goods_id: number;  
+	goods_id: number;
+	activated: boolean;  
 }
 
 export interface EventDeck {
@@ -122,3 +123,4 @@ export interface AdventureDeck {
 	totem: boolean; 
 	activated: boolean;     
 }
+

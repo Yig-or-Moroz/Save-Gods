@@ -265,7 +265,7 @@ const GameScreen = ({ navigation, route }: any) => {
 						<View style={styles.field}>
 							<TouchableOpacity style={styles.winRow} onPress={toggleWin}>
 								<View style={[styles.checkbox, win && styles.checkboxChecked]} />
-								<Text style={styles.winText}>Win!</Text>
+								<Text style={styles.winText}>Кампанію закінчено!</Text>
 							</TouchableOpacity>
 						</View>
 					</>

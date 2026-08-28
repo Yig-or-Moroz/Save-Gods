@@ -33,10 +33,10 @@ const AdventureDeckScreen = ({ navigation, route }: any) => {
 	// Стан форми
 	const [cardNumber, setCardNumber] = useState('');
 	const [cardName, setCardName] = useState('');
-	const [cardType, setCardType] = useState('немає');
+	const [cardType, setCardType] = useState('-');
 	const [totem, setTotem] = useState<boolean>(false);
 
-	const typeOptions = ['Зброя', 'Рецепт', 'Спорядження', 'Пасажир', 'Тварина', 'немає'];
+	const typeOptions = ['Зброя', 'Рецепт', 'Спорядження', 'Пасажир', 'Тварина', '-'];
 
 	useEffect(() => {
 		loadCards();
@@ -78,7 +78,7 @@ const AdventureDeckScreen = ({ navigation, route }: any) => {
 			// Очищаємо форму
 			setCardNumber('');
 			setCardName('');
-			setCardType('немає');
+			setCardType('-');
 			setTotem(false);
 			// Оновлюємо список
 			await loadCards();
