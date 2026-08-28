@@ -15,6 +15,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../database';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import ShipView from '../components/ShipView';
+import CharacterView from '../components/CharacterView';
+import PlayerView from '../components/PlayerView';
+import EventCardView from '../components/EventCardView';
 
 // Вмикаємо LayoutAnimation для Android
 if (Platform.OS === 'android') {
@@ -22,7 +25,7 @@ if (Platform.OS === 'android') {
 		UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// ТИПИ (залишаємо тільки ті, що потрібні для LayoutGameScreen)
+// ---------- ТИПИ ----------
 type GameData = {
 	id: number;
 	game_name: string;
@@ -77,8 +80,8 @@ type AdventureDeckItem = {
 	card_number: number;
 	name: string;
 	type: string;
-	totem: number; // 0 або 1
-	activated: number; // 0 або 1
+	totem: number;
+	activated: number;
 };
 
 type UnifiedGood = {
@@ -90,6 +93,36 @@ type UnifiedGood = {
 	source: 'chest' | 'adventure';
 };
 
+type CharacterData = {
+	id: number;
+	game_id: number;
+	player_id: number;
+	character_name_id: number;
+	damage: number;
+	fatigue: number;
+	fright: number;
+	madness: number;
+	poisoning: number;
+	weakness: number;
+	low_morale: number;
+	ability_card_id_1: number | null;
+	ability_card_id_2: number | null;
+	experience_card_id_1: number | null;
+	experience_card_id_2: number | null;
+	experience_card_id_3: number | null;
+};
+
+type AbilityCard = {
+	id: number;
+	name: string;
+};
+
+type ExperienceCard = {
+	id: number;
+	name: string;
+	character_name_id: number;
+};
+
 type Section = {
 	id: string;
 	title: string;
@@ -97,6 +130,7 @@ type Section = {
 	playerId?: number;
 };
 
+// ---------- ОСНОВНИЙ КОМПОНЕНТ ----------
 const LayoutGameScreen = ({ navigation, route }: any) => {
 	const { gameId } = route.params;
 	const [isLoading, setIsLoading] = useState(true);
@@ -104,6 +138,9 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 	const [players, setPlayers] = useState<Player[]>([]);
 	const [ship, setShip] = useState<ShipData | null>(null);
 	const [allGoods, setAllGoods] = useState<UnifiedGood[]>([]);
+	const [characters, setCharacters] = useState<CharacterData[]>([]);
+	const [abilityCards, setAbilityCards] = useState<AbilityCard[]>([]);
+	const [experienceCards, setExperienceCards] = useState<ExperienceCard[]>([]);
 	const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
 
 	useEffect(() => {
@@ -112,7 +149,7 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 
 	const loadGameData = async () => {
 		try {
-			// 1. Завантажуємо гру
+			// 1. Гра
 			const gameResult = await db.getAllAsync<GameData>(
 				'SELECT id, game_name, number_of_players, difficulty_level, experience, number_of_losses, win FROM games WHERE id = ?;',
 				[gameId]
@@ -124,14 +161,14 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 			}
 			setGame(gameResult[0]);
 
-			// 2. Завантажуємо гравців
+			// 2. Гравці
 			const playersResult = await db.getAllAsync<Player>(
 				'SELECT id, name FROM players WHERE game_id = ? ORDER BY id;',
 				[gameId]
 			);
 			setPlayers(playersResult);
 
-			// 3. Завантажуємо корабель
+			// 3. Корабель
 			const shipResult = await db.getAllAsync<ShipData>(
 				'SELECT * FROM ships WHERE game_id = ?;',
 				[gameId]
@@ -140,7 +177,7 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 				setShip(shipResult[0]);
 			}
 
-			// 4. Завантажуємо майно з chest_goods + goods
+			// 4. Майно (chest_goods + adventure_decks)
 			const chestResult = await db.getAllAsync<ChestGood>(
 				'SELECT goods_id, activated FROM chest_goods WHERE game_id = ?;',
 				[gameId]
@@ -164,7 +201,6 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 				});
 			}
 
-			// 5. Завантажуємо майно з adventure_decks
 			const adventureResult = await db.getAllAsync<AdventureDeckItem>(
 				'SELECT id, card_number, name, type, totem, activated FROM adventure_decks WHERE game_id = ?;',
 				[gameId]
@@ -178,8 +214,26 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 				source: 'adventure' as const,
 			}));
 
-			// 6. Об'єднуємо обидва джерела
 			setAllGoods([...combinedGoods, ...adventureGoods]);
+
+			// 5. Картки здібностей (всі, для довідника)
+			const abilityResult = await db.getAllAsync<AbilityCard>(
+				'SELECT * FROM ability_cards ORDER BY name;'
+			);
+			setAbilityCards(abilityResult);
+
+			// 6. Картки досвіду (всі, для довідника)
+			const experienceResult = await db.getAllAsync<ExperienceCard>(
+				'SELECT * FROM experience_cards ORDER BY name;'
+			);
+			setExperienceCards(experienceResult);
+
+			// 7. Персонажі гри
+			const charactersResult = await db.getAllAsync<CharacterData>(
+				'SELECT * FROM characters WHERE game_id = ?;',
+				[gameId]
+			);
+			setCharacters(charactersResult);
 		} catch (error) {
 			console.error('Помилка завантаження даних гри:', error);
 			Alert.alert('Помилка', 'Не вдалося завантажити гру');
@@ -203,30 +257,60 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 
 	const renderSection = (section: Section) => {
 		const isExpanded = expandedSections.has(section.id);
-		const isPlayer = section.type === 'player';
-		const isCaptain = section.type === 'captain';
 
 		let content = null;
+
 		if (section.id === 'ship') {
-			if (ship) {
-				content = <ShipView ship={ship} allGoods={allGoods} />;
+			content = ship ? (
+				<ShipView ship={ship} allGoods={allGoods} />
+			) : (
+				<View style={styles.sectionContentInner}>
+					<Text style={styles.placeholderText}>Дані корабля відсутні</Text>
+				</View>
+			);
+		} else if (section.id === 'captain') {
+			const captainData = characters.find((c) => c.character_name_id === 1);
+			if (captainData) {
+				content = (
+					<CharacterView
+						character={captainData}
+						characterName="Капітан Софі Одеса"
+						abilityCards={abilityCards}
+						experienceCards={experienceCards}
+					/>
+				);
 			} else {
 				content = (
 					<View style={styles.sectionContentInner}>
-						<Text style={styles.placeholderText}>Дані корабля відсутні</Text>
+						<Text style={styles.placeholderText}>Дані капітана відсутні</Text>
 					</View>
 				);
 			}
+		} else if (section.type === 'player') {
+			const player = players.find((p) => p.id === section.playerId);
+			if (player) {
+				content = (
+					<PlayerView
+						playerId={player.id}
+						gameId={game?.id || 0}
+						abilityCards={abilityCards}
+						experienceCards={experienceCards}
+					/>
+				);
+			} else {
+				content = (
+					<View style={styles.sectionContentInner}>
+						<Text style={styles.placeholderText}>Дані гравця відсутні</Text>
+					</View>
+				);
+			}
+		} else if (section.id === 'events') {
+			content = <EventCardView gameId={game?.id || 0} />;
 		} else {
+			// tasks та інші
 			content = (
 				<View style={styles.sectionContentInner}>
-					<Text style={styles.placeholderText}>
-						{isPlayer
-							? `Тут буде інформація про гравця ${section.title}`
-							: isCaptain
-								? 'Тут буде інформація про Капітана Софі Одеса'
-								: `Тут буде інформація про ${section.title}`}
-					</Text>
+					<Text style={styles.placeholderText}>Тут буде інформація про {section.title}</Text>
 				</View>
 			);
 		}
@@ -266,9 +350,9 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 	const sections: Section[] = [
 		{ id: 'ship', title: 'Корабель', type: 'ship' },
 		{ id: 'captain', title: 'Капітан Софі Одеса', type: 'captain' },
-		...players.map((p, index) => ({
+		...players.map((p) => ({
 			id: `player-${p.id}`,
-			title: `Гравець ${index + 1}`,
+			title: p.name,
 			type: 'player' as const,
 			playerId: p.id,
 		})),

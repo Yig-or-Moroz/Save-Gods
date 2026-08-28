@@ -6,6 +6,7 @@ import {
 	Image,
 	StyleSheet,
 } from 'react-native';
+
 import FateBackgroundImage from '../../assets/images/fate.webp';
 import MeatBackgroundImage from '../../assets/images/resource-token-meat.webp';
 import GrainBackgroundImage from '../../assets/images/resource-token-grain.webp';
@@ -279,7 +280,7 @@ const styles = StyleSheet.create({
 		borderWidth: 4,
 		borderColor: "#bc2b33",
 		borderRadius: 22,
-		fontSize: 22,
+		fontSize: 20,
 		fontFamily: 'Kyiv-Machine',
 		color: '#000',
 		textAlign: 'center',
