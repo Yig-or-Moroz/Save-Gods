@@ -56,7 +56,8 @@ const GameScreen = ({ navigation, route }: any) => {
 			}
 			const gameData = gameResult[0];
 			setGame(gameData);
-			setExperience(gameData.experience.toString());
+			// Якщо experience === 0, показуємо порожній рядок (плейсхолдер)
+			setExperience(gameData.experience === 0 ? '' : gameData.experience.toString());
 			setLossesCount(gameData.number_of_losses);
 			setWin(gameData.win === 1);
 
@@ -179,7 +180,6 @@ const GameScreen = ({ navigation, route }: any) => {
 						<Text style={styles.navButtonText}>Капітан Софі Одеса</Text>
 					</TouchableOpacity>
 
-
 					{players.map((player) => (
 						<TouchableOpacity
 							key={player.id}
@@ -201,7 +201,6 @@ const GameScreen = ({ navigation, route }: any) => {
 						<Text style={styles.navButtonText}>Майно</Text>
 					</TouchableOpacity>
 
-					{/* Нова кнопка "Колода пригод" */}
 					<TouchableOpacity
 						style={styles.navButton}
 						onPress={() => navigation.navigate('AdventureDeck', { gameId: game.id })}
@@ -222,6 +221,13 @@ const GameScreen = ({ navigation, route }: any) => {
 					>
 						<Text style={styles.navButtonText}>Колода завдань</Text>
 					</TouchableOpacity>
+
+					<TouchableOpacity
+						style={styles.navButton}
+						onPress={() => navigation.navigate('EditPlayers', { gameId: game.id })}
+					>
+						<Text style={styles.navButtonTextLust}>Змінити гравців</Text>
+					</TouchableOpacity>
 				</View>
 
 				<View style={styles.field}>
@@ -232,6 +238,7 @@ const GameScreen = ({ navigation, route }: any) => {
 						onChangeText={setExperience}
 						keyboardType="numeric"
 						maxLength={6}
+						placeholder="0"
 					/>
 				</View>
 
@@ -373,6 +380,12 @@ const styles = StyleSheet.create({
 		fontSize: 18,
 		fontFamily: 'Kyiv-Machine',
 		color: '#004d57',
+		textAlign: 'center',
+	},
+	navButtonTextLust: {
+		fontSize: 18,
+		fontFamily: 'Kyiv-Machine',
+		color: '#691716',
 		textAlign: 'center',
 	},
 	field: {
