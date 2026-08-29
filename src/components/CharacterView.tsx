@@ -10,6 +10,7 @@ import WeakenedBackgroundImage from '../../assets/images/status-weakened.webp';
 import FrightenedBackgroundImage from '../../assets/images/status-frightened.webp';
 import LowMoraleBackgroundImage from '../../assets/images/status-low-morale.webp';
 import XPCostBackgroundImage from '../../assets/images/xp-cost.webp';
+import AbilityCardBackgroundImage from '../../assets/images/abilityCard.png';
 
 type CharacterData = {
 	id: number;
@@ -82,83 +83,74 @@ const CharacterView = ({ character, characterName, abilityCards, experienceCards
 
 	return (
 		<View style={styles.container}>
-			{/* Рядок: Ушкодження + Втома (показуємо тільки якщо є хоч щось) */}
-			{hasDamageOrFatigue && (
-				<View style={styles.row}>
-					{character.damage > 0 && (
-						<View>
-							<ImageBackground
-								source={DamageBackgroundImage}
-								style={styles.damageBackground}
-								resizeMode="contain"
-							>
-								<Text style={styles.labelDamage}>{character.damage}</Text>
-							</ImageBackground>
-						</View>
-					)}
-					{character.fatigue > 0 && (
-						<View>
-							<ImageBackground
-								source={character.fatigue === 1 ? FatigueBackgroundImage : FatigueTokensBackgroundImage}
-								style={styles.fatigueBackground}
-								resizeMode="contain"
-							/>
-						</View>
-					)}
-				</View>
-			)}
+				{hasDamageOrFatigue && hasStates && (
+					<View style={styles.row}>
+						{character.damage > 0 && (
+								<ImageBackground
+									source={DamageBackgroundImage}
+									style={styles.damageBackground}
+									resizeMode="contain"
+								>
+									<Text style={styles.labelDamage}>{character.damage}</Text>
+								</ImageBackground>
+						)}
+						{character.fatigue > 0 && (
+								<ImageBackground
+									source={character.fatigue === 1 ? FatigueBackgroundImage : FatigueTokensBackgroundImage}
+									style={styles.fatigueBackground}
+									resizeMode="contain"
+								/>
+						)}
+				
 
-			{/* Стани (рядок з іконками) – показуємо тільки якщо є стани */}
-			{hasStates && (
-				<View style={styles.row}>
-					{character.fright === 1 && (
-						<View style={styles.iconWithLabel}>
-							<Image
-								source={FrightenedBackgroundImage}
-								style={styles.img}
-								resizeMode="contain"
-							/>
-						</View>
-					)}
-					{character.madness === 1 && (
-						<View style={styles.iconWithLabel}>
-							<Image
-								source={MadnessBackgroundImage}
-								style={styles.img}
-								resizeMode="contain"
-							/>
-						</View>
-					)}
-					{character.poisoning === 1 && (
-						<View style={styles.iconWithLabel}>
-							<Image
-								source={VenomBackgroundImage}
-								style={styles.img}
-								resizeMode="contain"
-							/>
-						</View>
-					)}
-					{character.weakness === 1 && (
-						<View style={styles.iconWithLabel}>
-							<Image
-								source={WeakenedBackgroundImage}
-								style={styles.img}
-								resizeMode="contain"
-							/>
-						</View>
-					)}
-					{character.low_morale === 1 && (
-						<View style={styles.iconWithLabel}>
-							<Image
-								source={LowMoraleBackgroundImage}
-								style={styles.img}
-								resizeMode="contain"
-							/>
-						</View>
-					)}
-				</View>
-			)}
-
+				{/* Стани (рядок з іконками) – показуємо тільки якщо є стани */}
+						{character.fright === 1 && (
+							<View style={styles.iconWithLabel}>
+								<Image
+									source={FrightenedBackgroundImage}
+									style={styles.img}
+									resizeMode="contain"
+								/>
+							</View>
+						)}
+						{character.madness === 1 && (
+							<View style={styles.iconWithLabel}>
+								<Image
+									source={MadnessBackgroundImage}
+									style={styles.img}
+									resizeMode="contain"
+								/>
+							</View>
+						)}
+						{character.poisoning === 1 && (
+							<View style={styles.iconWithLabel}>
+								<Image
+									source={VenomBackgroundImage}
+									style={styles.img}
+									resizeMode="contain"
+								/>
+							</View>
+						)}
+						{character.weakness === 1 && (
+							<View style={styles.iconWithLabel}>
+								<Image
+									source={WeakenedBackgroundImage}
+									style={styles.img}
+									resizeMode="contain"
+								/>
+							</View>
+						)}
+						{character.low_morale === 1 && (
+							<View style={styles.iconWithLabel}>
+								<Image
+									source={LowMoraleBackgroundImage}
+									style={styles.img}
+									resizeMode="contain"
+								/>
+							</View>
+						)}
+					</View>
+				)}
 			{/* Повідомлення, якщо немає ні ушкоджень, ні втоми, ні станів */}
 			{!hasDamageOrFatigue && !hasStates && character.character_name_id < 5 && (
 				<View style={styles.messageContainer}>
@@ -177,7 +169,11 @@ const CharacterView = ({ character, characterName, abilityCards, experienceCards
 				<View style={styles.section}>
 					{abilityNames.map((name, index) => (
 						<Text key={index} style={styles.listItem}>
-							<View style={styles.abilityCard}></View> {name}
+							<Image
+								source={AbilityCardBackgroundImage}
+								style={styles.abilityCard}
+								resizeMode="contain"
+							/> {name}
 						</Text>
 					))}
 				</View>
@@ -208,29 +204,28 @@ const styles = StyleSheet.create({
 		borderRadius: 8,
 	},
 	row: {
+		flex: 1,
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'space-around',
-		marginBottom: 30,
+		marginBottom: 20,
+		flexWrap: 'wrap',
+		rowGap: 10,
 	},
 	damageBackground: {
-		width: 45,
-		height: 75,
+		width: 60,
+		height: 65,
 		justifyContent: 'center',
 		alignItems: 'center',
 	},
 	fatigueBackground: {
-		width: 90,
-		height: 75,
-		justifyContent: 'center',
-		alignItems: 'center',
-	},
+		width: 80,
+		height: 65,
+		},
 	iconWithLabel: {
 		width: 60,
 		height: 60,
-		flexDirection: 'row',
-		alignItems: 'center',
-	},
+		},
 	img: {
 		width: '100%',
 		height: '100%',
@@ -239,6 +234,9 @@ const styles = StyleSheet.create({
 		fontSize: 32,
 		fontFamily: 'Kyiv-Machine',
 		color: '#fff',
+		textShadowColor: '#000',
+		textShadowOffset: { width: 2, height: 1 },
+		textShadowRadius: 3,
 	},
 	messageContainer: {
 		alignItems: 'center',
@@ -261,8 +259,9 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 	},
 	xpcard: {
-		width: 20,
-		height: 20,
+		width: 26,
+		height: 26,
+
 	},
 	xpcardText: {
 		fontSize: 20,
@@ -271,12 +270,9 @@ const styles = StyleSheet.create({
 		marginLeft: 8,
 	},
 	abilityCard: {
-		width: 18,
-		height: 22,
-		backgroundColor: "#630606",
-		borderRadius: 3,
-		borderWidth: 1,
-		borderColor: '#ba5740',
+		width: 26,
+		height: 26,
+		resizeMode: 'center',
 	},
 });
 

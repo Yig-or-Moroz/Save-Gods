@@ -248,7 +248,7 @@ const styles = StyleSheet.create({
 		borderTopColor: '#ccc',
 	},
 	characterName: {
-		fontSize: 20,
+		fontSize: 22,
 		fontFamily: 'Kyiv-Machine',
 		color: '#004d57',
 		marginBottom: 12,

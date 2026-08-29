@@ -3,12 +3,16 @@ import {
 	View,
 	Text,
 	TouchableOpacity,
-	FlatList,
 	StyleSheet,
 	ActivityIndicator,
 	Alert,
+	Image,
 } from 'react-native';
 import { db } from '../database';
+
+import EventMildImage from '../../assets/images/event-mild.webp';
+import EventPerilousImage from '../../assets/images/event-perilous.webp';
+import EventDeadlyImage from '../../assets/images/event-deadly.webp';
 
 type EventDeckItem = {
 	id: number;
@@ -59,26 +63,25 @@ const EventCardView = ({ gameId }: Props) => {
 			);
 			setCards(result);
 		} catch (error) {
-			console.error('Помилка завантаження колоди подій:', error);
 			Alert.alert('Помилка', 'Не вдалося завантажити колоду подій');
 		} finally {
 			setIsLoading(false);
 		}
 	};
 
-	const getDeckCards = (deckNumber: number) => {
-		const start = (deckNumber - 1) * 18;
-		const end = deckNumber * 18;
-		let deckCards = cards.filter((c) => c.order_number > start && c.order_number <= end);
-		// Групуємо за типом: Помірні, Небезпечні, Смертоносні
-		const typeOrder = ['Помірні', 'Небезпечні', 'Смертоносні'];
-		const sorted = [...deckCards].sort((a, b) => {
-			const indexA = typeOrder.indexOf(a.type);
-			const indexB = typeOrder.indexOf(b.type);
-			if (indexA !== indexB) return indexA - indexB;
-			return a.order_number - b.order_number;
-		});
-		return sorted;
+	const getDeckCards = (deckIndex: number) => {
+		const typeOrder = ['помірні', 'небезпечні', 'смертоносні'];
+		const deckCards: EventCardWithOrder[] = [];
+		for (const type of typeOrder) {
+			const typeCards = cards
+				.filter((c) => c.type.toLowerCase() === type.toLowerCase())
+				.sort((a, b) => a.order_number - b.order_number);
+			const start = deckIndex * 6;
+			const end = start + 6;
+			const slice = typeCards.slice(start, end);
+			deckCards.push(...slice);
+		}
+		return deckCards;
 	};
 
 	const toggleDeck = (deckNumber: number) => {
@@ -88,8 +91,17 @@ const EventCardView = ({ gameId }: Props) => {
 		}));
 	};
 
+	const getTypeImage = (type: string) => {
+		const lowerType = type.toLowerCase();
+		if (lowerType === 'помірні') return EventMildImage;
+		if (lowerType === 'небезпечні') return EventPerilousImage;
+		if (lowerType === 'смертоносні') return EventDeadlyImage;
+		return null;
+	};
+
 	const renderDeck = (deckNumber: number) => {
-		const deckCards = getDeckCards(deckNumber);
+		const deckIndex = deckNumber - 1;
+		const deckCards = getDeckCards(deckIndex);
 		const isExpanded = expandedDecks[deckNumber] || false;
 		const hasCards = deckCards.length > 0;
 
@@ -103,13 +115,17 @@ const EventCardView = ({ gameId }: Props) => {
 					<View style={styles.deckContent}>
 						{hasCards ? (
 							deckCards.map((card) => {
-								const isConstant = card.property_constantly === true || card.property_constantly === 1;
+								console.log(card.remains_in_game);
+								const isConstant = card.remains_in_game === 1;
+								const typeImage = getTypeImage(card.type);
 								return (
 									<View key={card.id} style={[styles.cardItem, isConstant && styles.cardItemConstant]}>
 										<Text style={[styles.cardName, isConstant && styles.cardNameConstant]}>
 											{card.name}
 										</Text>
-										<Text style={styles.cardType}>{card.type}</Text>
+										{typeImage && (
+											<Image source={typeImage} style={styles.typeImage} />
+										)}
 									</View>
 								);
 							})
@@ -149,7 +165,8 @@ const EventCardView = ({ gameId }: Props) => {
 const styles = StyleSheet.create({
 	container: {
 		backgroundColor: '#f5f0e8',
-		padding: 16,
+		paddingVertical: 16,
+		paddingHorizontal: 4,
 		borderRadius: 8,
 	},
 	loadingContainer: {
@@ -164,7 +181,7 @@ const styles = StyleSheet.create({
 	},
 	deckContainer: {
 		marginBottom: 12,
-		backgroundColor: '#fff',
+		backgroundColor: '#f5f0e8',
 		borderRadius: 8,
 		overflow: 'hidden',
 		shadowColor: '#000',
@@ -176,15 +193,15 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
-		padding: 12,
-		backgroundColor: '#f9f6f0',
+		padding: 16,
+		backgroundColor: '#f5f0e8',
 		borderBottomWidth: 1,
-		borderBottomColor: '#e0d5c4',
+		borderBottomColor: '#ccc',
 	},
 	deckTitle: {
-		fontSize: 18,
+		fontSize: 24,
 		fontFamily: 'Kyiv-Machine',
-		color: '#004d57',
+		color: '#691716',
 	},
 	cardCount: {
 		fontSize: 14,
@@ -198,27 +215,35 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
-		paddingVertical: 6,
+		paddingVertical: 8,
 		paddingHorizontal: 8,
 		borderBottomWidth: 1,
-		borderBottomColor: '#eee',
+		borderBottomColor: '#ccc',
 	},
 	cardItemConstant: {
-		backgroundColor: '#fff0f0',
+		backgroundColor: '#691716',
+		borderStyle: 'dashed',
+		borderBottomWidth: 2,
+		borderTopWidth: 2,
+		borderBottomColor: "#c84137",
+		borderTopColor: "#c84137",
 	},
 	cardName: {
-		fontSize: 16,
+		fontSize: 18,
 		fontFamily: 'Kyiv-Machine',
-		color: '#333',
+		color: '#004d57',
+		flex: 1,
 	},
 	cardNameConstant: {
-		color: '#691716',
-		fontWeight: 'bold',
+		color: '#fff',
 	},
-	cardType: {
-		fontSize: 14,
-		fontFamily: 'Kyiv-Machine',
-		color: '#888',
+	typeImage: {
+		width: 30,
+		height: 30,
+		marginLeft: 8,
+		borderRadius: 7,
+		borderWidth: 1,
+		borderColor: '#39090b',
 	},
 	emptyText: {
 		fontSize: 14,

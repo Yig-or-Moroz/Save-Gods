@@ -10,6 +10,7 @@ import {
 	LayoutAnimation,
 	UIManager,
 	Platform,
+	Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { db } from '../database';
@@ -19,11 +20,7 @@ import CharacterView from '../components/CharacterView';
 import PlayerView from '../components/PlayerView';
 import EventCardView from '../components/EventCardView';
 
-// Вмикаємо LayoutAnimation для Android
-if (Platform.OS === 'android') {
-	UIManager.setLayoutAnimationEnabledExperimental &&
-		UIManager.setLayoutAnimationEnabledExperimental(true);
-}
+import CaptainImage from '../../assets/images/captian-token.webp';
 
 // ---------- ТИПИ ----------
 type GameData = {
@@ -39,6 +36,7 @@ type GameData = {
 type Player = {
 	id: number;
 	name: string;
+	captain: number;
 };
 
 type ShipData = {
@@ -128,6 +126,7 @@ type Section = {
 	title: string;
 	type: 'ship' | 'captain' | 'player' | 'events' | 'tasks';
 	playerId?: number;
+	isCaptain?: boolean;
 };
 
 // ---------- ОСНОВНИЙ КОМПОНЕНТ ----------
@@ -149,7 +148,6 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 
 	const loadGameData = async () => {
 		try {
-			// 1. Гра
 			const gameResult = await db.getAllAsync<GameData>(
 				'SELECT id, game_name, number_of_players, difficulty_level, experience, number_of_losses, win FROM games WHERE id = ?;',
 				[gameId]
@@ -161,14 +159,12 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 			}
 			setGame(gameResult[0]);
 
-			// 2. Гравці
 			const playersResult = await db.getAllAsync<Player>(
-				'SELECT id, name FROM players WHERE game_id = ? ORDER BY id;',
+				'SELECT id, name, captain FROM players WHERE game_id = ? ORDER BY id;',
 				[gameId]
 			);
 			setPlayers(playersResult);
 
-			// 3. Корабель
 			const shipResult = await db.getAllAsync<ShipData>(
 				'SELECT * FROM ships WHERE game_id = ?;',
 				[gameId]
@@ -177,7 +173,6 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 				setShip(shipResult[0]);
 			}
 
-			// 4. Майно (chest_goods + adventure_decks)
 			const chestResult = await db.getAllAsync<ChestGood>(
 				'SELECT goods_id, activated FROM chest_goods WHERE game_id = ?;',
 				[gameId]
@@ -216,19 +211,16 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 
 			setAllGoods([...combinedGoods, ...adventureGoods]);
 
-			// 5. Картки здібностей (всі, для довідника)
 			const abilityResult = await db.getAllAsync<AbilityCard>(
 				'SELECT * FROM ability_cards ORDER BY name;'
 			);
 			setAbilityCards(abilityResult);
 
-			// 6. Картки досвіду (всі, для довідника)
 			const experienceResult = await db.getAllAsync<ExperienceCard>(
 				'SELECT * FROM experience_cards ORDER BY name;'
 			);
 			setExperienceCards(experienceResult);
 
-			// 7. Персонажі гри
 			const charactersResult = await db.getAllAsync<CharacterData>(
 				'SELECT * FROM characters WHERE game_id = ?;',
 				[gameId]
@@ -307,13 +299,24 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 		} else if (section.id === 'events') {
 			content = <EventCardView gameId={game?.id || 0} />;
 		} else {
-			// tasks та інші
 			content = (
 				<View style={styles.sectionContentInner}>
 					<Text style={styles.placeholderText}>Тут буде інформація про {section.title}</Text>
 				</View>
 			);
 		}
+
+		const renderSectionTitle = () => {
+			if (section.type === 'player' && section.isCaptain) {
+				return (
+					<View style={styles.sectionTitleContainer}>
+						<Text style={styles.sectionTitle}>{section.title}</Text>
+						<Image source={CaptainImage} style={styles.captainIcon} />
+					</View>
+				);
+			}
+			return <Text style={styles.sectionTitle}>{section.title}</Text>;
+		};
 
 		return (
 			<View key={section.id} style={styles.sectionContainer}>
@@ -322,7 +325,7 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 					onPress={() => toggleSection(section.id)}
 					activeOpacity={0.7}
 				>
-					<Text style={styles.sectionTitle}>{section.title}</Text>
+					{renderSectionTitle()}
 					<Ionicons
 						name={isExpanded ? 'chevron-up' : 'chevron-down'}
 						size={24}
@@ -355,6 +358,7 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 			title: p.name,
 			type: 'player' as const,
 			playerId: p.id,
+			isCaptain: p.captain === 1,
 		})),
 		{ id: 'events', title: 'Колода подій', type: 'events' },
 		{ id: 'tasks', title: 'Колода завдань', type: 'tasks' },
@@ -476,6 +480,16 @@ const styles = StyleSheet.create({
 		fontSize: 22,
 		fontFamily: 'Kyiv-Machine',
 		color: '#004d57',
+	},
+	sectionTitleContainer: {
+		flexDirection: 'row',
+		alignItems: 'center',
+	},
+	captainIcon: {
+		width: 50,
+		height: 25,
+		marginLeft: 16,
+		resizeMode: "contain",
 	},
 	sectionContent: {
 		backgroundColor: '#f5f0e8',
