@@ -65,7 +65,8 @@ export type CharacterEditorRef = {
 };
 
 const CharacterEditor = forwardRef<CharacterEditorRef, Props>(({ character, abilityCards, experienceCards }, ref) => {
-	const [damage, setDamage] = useState(character.damage.toString());
+	// Якщо damage === 0, показуємо порожній рядок (плейсхолдер)
+	const [damage, setDamage] = useState(character.damage === 0 ? '' : character.damage.toString());
 	const [fatigue1, setFatigue1] = useState(character.fatigue >= 1);
 	const [fatigue2, setFatigue2] = useState(character.fatigue >= 2);
 	const [fright, setFright] = useState(character.fright === 1);

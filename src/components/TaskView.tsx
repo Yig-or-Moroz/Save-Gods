@@ -142,10 +142,8 @@ const styles = StyleSheet.create({
 		fontSize: 16,
 		fontFamily: 'Kyiv-Machine',
 		color: '#888',
-		backgroundColor: '#f0ebe4',
 		paddingHorizontal: 10,
 		paddingVertical: 2,
-		borderRadius: 12,
 	},
 	sectionTitleUsed: {
 		fontSize: 18,

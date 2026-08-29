@@ -121,6 +121,13 @@ type ExperienceCard = {
 	character_name_id: number;
 };
 
+type TaskCard = {
+	id: number;
+	game_id: number;
+	card_number: number;
+	done: number;
+};
+
 type Section = {
 	id: string;
 	title: string;
@@ -140,11 +147,61 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 	const [characters, setCharacters] = useState<CharacterData[]>([]);
 	const [abilityCards, setAbilityCards] = useState<AbilityCard[]>([]);
 	const [experienceCards, setExperienceCards] = useState<ExperienceCard[]>([]);
+	const [taskCards, setTaskCards] = useState<TaskCard[]>([]);
+	const [finalScore, setFinalScore] = useState<number>(0);
 	const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
 
 	useEffect(() => {
 		loadGameData();
 	}, []);
+
+	const calculateFinalScore = () => {
+		if (!game || !ship) return 0;
+
+		let score = 0;
+
+		// AdventureDeck: за кожну картку - 2 очки
+		const adventureCardsCount = allGoods.filter(g => g.source === 'adventure').length;
+		score += adventureCardsCount * 2;
+
+		// AdventureDeck: totem === true -> ще +2 за кожну
+		const totemCount = allGoods.filter(g => g.source === 'adventure' && g.isTotem).length;
+		score += totemCount * 2;
+
+		// TaskDeck: за кожну картку - 1 очко
+		score += taskCards.length * 1;
+
+		// Characters: за кожну experience_card_id - 2 очки
+		let expCardsCount = 0;
+		characters.forEach(char => {
+			if (char.experience_card_id_1) expCardsCount++;
+			if (char.experience_card_id_2) expCardsCount++;
+			if (char.experience_card_id_3) expCardsCount++;
+		});
+		score += expCardsCount * 2;
+
+		// Ship: за кожні 2 монети - 1 очко
+		score += Math.floor(ship.coins / 2);
+
+		// Ship: за кожен артефакт - 1 очко
+		score += ship.artifacts;
+
+		// Win бонуси
+		if (game.win === 1) {
+			if (game.difficulty_level === 1) { // normal
+				score += 10;
+			} else if (game.difficulty_level === 2) { // hard
+				score += 25;
+			}
+		}
+
+		// Штрафи за поразки (normal mode only)
+		if (game.difficulty_level === 1) {
+			score -= game.number_of_losses * 10;
+		}
+
+		setFinalScore(score);
+	};
 
 	const loadGameData = async () => {
 		try {
@@ -158,7 +215,8 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 				navigation.goBack();
 				return;
 			}
-			setGame(gameResult[0]);
+			const gameData = gameResult[0];
+			setGame(gameData);
 
 			// 2. Гравці (з captain)
 			const playersResult = await db.getAllAsync<Player>(
@@ -233,6 +291,19 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 				[gameId]
 			);
 			setCharacters(charactersResult);
+
+			// 8. Завдання (task_decks)
+			const taskResult = await db.getAllAsync<TaskCard>(
+				'SELECT * FROM task_decks WHERE game_id = ? ORDER BY card_number;',
+				[gameId]
+			);
+			setTaskCards(taskResult);
+
+			// 9. Після завантаження всіх даних розраховуємо фінальний рахунок
+			// Але ship та game вже доступні, але ми використовуємо їх у calculateFinalScore
+			// Однак setShip, setGame, setAllGoods, setCharacters, setTaskCards – асинхронні,
+			// тому краще викликати calculateFinalScore після всіх setState у цьому блоці
+			// або в окремому useEffect, який залежить від цих даних.
 		} catch (error) {
 			console.error('Помилка завантаження даних гри:', error);
 			Alert.alert('Помилка', 'Не вдалося завантажити гру');
@@ -240,6 +311,13 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 			setIsLoading(false);
 		}
 	};
+
+	// Викликаємо перерахунок, коли всі дані завантажені
+	useEffect(() => {
+		if (game && ship && allGoods.length >= 0 && characters.length >= 0 && taskCards.length >= 0) {
+			calculateFinalScore();
+		}
+	}, [game, ship, allGoods, characters, taskCards]);
 
 	const toggleSection = (sectionId: string) => {
 		LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -394,9 +472,7 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 				<View style={styles.footerContainer}>
 					<View style={styles.footerRow}>
 						<Text style={styles.footerLabel}>Фінальний рахунок:</Text>
-						<Text style={[styles.footerValue, game.win === 1 ? styles.winText : styles.loseText]}>
-							{game.win === 1 ? 'Перемога!' : 'Поразка'}
-						</Text>
+						<Text style={styles.footerValue}>{finalScore}</Text>
 					</View>
 					<View style={styles.footerRow}>
 						<Text style={styles.footerLabel}>Очки досвіду:</Text>

@@ -115,7 +115,6 @@ const EventCardView = ({ gameId }: Props) => {
 					<View style={styles.deckContent}>
 						{hasCards ? (
 							deckCards.map((card) => {
-								console.log(card.remains_in_game);
 								const isConstant = card.remains_in_game === 1;
 								const typeImage = getTypeImage(card.type);
 								return (
@@ -158,6 +157,9 @@ const EventCardView = ({ gameId }: Props) => {
 					{renderDeck(3)}
 				</>
 			)}
+			<View style={styles.cardItemConstant}>
+				<Text style={styles.hint}>* картка залишається у грі</Text>
+			</View>
 		</View>
 	);
 };
@@ -218,7 +220,7 @@ const styles = StyleSheet.create({
 		paddingVertical: 8,
 		paddingHorizontal: 8,
 		borderBottomWidth: 1,
-		borderBottomColor: '#ccc',
+		borderBottomColor: '#fff',
 	},
 	cardItemConstant: {
 		backgroundColor: '#691716',
@@ -236,6 +238,12 @@ const styles = StyleSheet.create({
 	},
 	cardNameConstant: {
 		color: '#fff',
+	},
+	hint: {
+		fontSize: 14,
+		fontFamily: 'Kyiv-Machine',
+		color: '#fff',
+		padding: 6,
 	},
 	typeImage: {
 		width: 30,

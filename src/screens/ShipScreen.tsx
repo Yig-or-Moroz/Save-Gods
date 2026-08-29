@@ -67,10 +67,10 @@ const ShipScreen = ({ navigation, route }: any) => {
 			if (result.length === 0) {
 				await db.runAsync(
 					`INSERT INTO ships (
-            game_id, hull, deck, hospital, caboose, cabin, bridge,
-            last_action, page, location,
-            meat, vegetables, grain, materials, artifacts, coins
-          ) VALUES (?, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0);`,
+						game_id, hull, deck, hospital, caboose, cabin, bridge,
+						last_action, page, location,
+						meat, vegetables, grain, materials, artifacts, coins
+					) VALUES (?, 0, 0, 0, 0, 0, 0, 1, 0, '', 0, 0, 0, 0, 0, 0);`,
 					[gameId]
 				);
 				const newResult = await db.getAllAsync<ShipData>(
@@ -101,14 +101,14 @@ const ShipScreen = ({ navigation, route }: any) => {
 		setCabin(data.cabin);
 		setBridge(data.bridge);
 		setLastAction(data.last_action);
-		setPage(data.page.toString());
-		setLocation(data.location);
-		setMeat(data.meat.toString());
-		setVegetables(data.vegetables.toString());
-		setGrain(data.grain.toString());
-		setMaterials(data.materials.toString());
-		setArtifacts(data.artifacts.toString());
-		setCoins(data.coins.toString());
+		setPage(data.page === 0 ? '' : data.page.toString());
+		setLocation(data.location || '');
+		setMeat(data.meat === 0 ? '' : data.meat.toString());
+		setVegetables(data.vegetables === 0 ? '' : data.vegetables.toString());
+		setGrain(data.grain === 0 ? '' : data.grain.toString());
+		setMaterials(data.materials === 0 ? '' : data.materials.toString());
+		setArtifacts(data.artifacts === 0 ? '' : data.artifacts.toString());
+		setCoins(data.coins === 0 ? '' : data.coins.toString());
 	};
 
 	const handleSave = async () => {
@@ -324,6 +324,7 @@ const ShipScreen = ({ navigation, route }: any) => {
 							onChangeText={setPage}
 							keyboardType="numeric"
 							maxLength={6}
+							placeholder="0"
 						/>
 					</View>
 					<View style={styles.locationInput}>
@@ -333,6 +334,7 @@ const ShipScreen = ({ navigation, route }: any) => {
 							value={location}
 							onChangeText={setLocation}
 							maxLength={6}
+							placeholder="0"
 						/>
 					</View>
 				</View>
@@ -346,6 +348,7 @@ const ShipScreen = ({ navigation, route }: any) => {
 							value={meat}
 							onChangeText={setMeat}
 							keyboardType="numeric"
+							placeholder="0"
 						/>
 						<Text style={styles.resourceLabel}>матеріали:</Text>
 						<TextInput
@@ -353,6 +356,7 @@ const ShipScreen = ({ navigation, route }: any) => {
 							value={materials}
 							onChangeText={setMaterials}
 							keyboardType="numeric"
+							placeholder="0"
 						/>
 					</View>
 					<View style={styles.resourceRow}>
@@ -362,6 +366,7 @@ const ShipScreen = ({ navigation, route }: any) => {
 							value={vegetables}
 							onChangeText={setVegetables}
 							keyboardType="numeric"
+							placeholder="0"
 						/>
 						<Text style={styles.resourceLabel}>артефакти:</Text>
 						<TextInput
@@ -369,6 +374,7 @@ const ShipScreen = ({ navigation, route }: any) => {
 							value={artifacts}
 							onChangeText={setArtifacts}
 							keyboardType="numeric"
+							placeholder="0"
 						/>
 					</View>
 					<View style={styles.resourceRow}>
@@ -378,6 +384,7 @@ const ShipScreen = ({ navigation, route }: any) => {
 							value={grain}
 							onChangeText={setGrain}
 							keyboardType="numeric"
+							placeholder="0"
 						/>
 						<Text style={styles.resourceLabel}>монети:</Text>
 						<TextInput
@@ -385,6 +392,7 @@ const ShipScreen = ({ navigation, route }: any) => {
 							value={coins}
 							onChangeText={setCoins}
 							keyboardType="numeric"
+							placeholder="0"
 						/>
 					</View>
 				</View>

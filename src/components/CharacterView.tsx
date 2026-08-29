@@ -270,9 +270,12 @@ const styles = StyleSheet.create({
 		marginLeft: 8,
 	},
 	abilityCard: {
-		width: 26,
+		width: 18,
 		height: 26,
 		resizeMode: 'center',
+		borderRadius: 4,
+		borderWidth: 1.5,
+		borderColor: '#ba5740',
 	},
 });
 

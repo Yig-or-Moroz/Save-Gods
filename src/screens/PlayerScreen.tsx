@@ -72,7 +72,8 @@ const PlayerScreen = ({ navigation, route }: any) => {
 			}
 			const playerData = playerResult[0];
 			setPlayer(playerData);
-			setTeamTokens(playerData.team_tokens.toString());
+			// Якщо team_tokens === 0, показуємо порожній рядок (плейсхолдер)
+			setTeamTokens(playerData.team_tokens === 0 ? '' : playerData.team_tokens.toString());
 			setAbility1(playerData.ability_card_id_1);
 			setAbility2(playerData.ability_card_id_2);
 			setAbility3(playerData.ability_card_id_3);
@@ -250,6 +251,7 @@ const PlayerScreen = ({ navigation, route }: any) => {
 						onChangeText={setTeamTokens}
 						keyboardType="numeric"
 						maxLength={2}
+						placeholder="0"
 					/>
 				</View>
 

@@ -4,6 +4,7 @@ import { db } from '../database';
 import CharacterView from './CharacterView';
 
 import CommandTokenBackgroundImage from '../../assets/images/command-token.webp';
+import AbilityCardBackgroundImage from '../../assets/images/abilityCard.png';
 
 type PlayerData = {
 	id: number;
@@ -149,7 +150,11 @@ const PlayerView = ({ playerId, gameId, abilityCards, experienceCards }: Props) 
 				<View style={styles.section}>
 					{abilityNames.map((name, index) => (
 						<Text key={index} style={styles.listItem}>
-							<View style={styles.abilityCard}></View> {name}
+							<Image
+								source={AbilityCardBackgroundImage}
+								style={styles.abilityCard}
+								resizeMode="contain"
+							/> {name}
 						</Text>
 					))}
 				</View>
@@ -235,10 +240,10 @@ const styles = StyleSheet.create({
 	},
 	abilityCard: {
 		width: 18,
-		height: 22,
-		backgroundColor: "#630606",
-		borderRadius: 3,
-		borderWidth: 1,
+		height: 26,
+		resizeMode: 'center',
+		borderRadius: 4,
+		borderWidth: 1.5,
 		borderColor: '#ba5740',
 	},
 	characterBlock: {
