@@ -8,7 +8,6 @@ import {
 	Alert,
 	ActivityIndicator,
 	LayoutAnimation,
-	UIManager,
 	Platform,
 	Image,
 } from 'react-native';
@@ -19,6 +18,7 @@ import ShipView from '../components/ShipView';
 import CharacterView from '../components/CharacterView';
 import PlayerView from '../components/PlayerView';
 import EventCardView from '../components/EventCardView';
+import TaskView from '../components/TaskView';
 
 import CaptainImage from '../../assets/images/captian-token.webp';
 
@@ -148,6 +148,7 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 
 	const loadGameData = async () => {
 		try {
+			// 1. Гра
 			const gameResult = await db.getAllAsync<GameData>(
 				'SELECT id, game_name, number_of_players, difficulty_level, experience, number_of_losses, win FROM games WHERE id = ?;',
 				[gameId]
@@ -159,12 +160,14 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 			}
 			setGame(gameResult[0]);
 
+			// 2. Гравці (з captain)
 			const playersResult = await db.getAllAsync<Player>(
 				'SELECT id, name, captain FROM players WHERE game_id = ? ORDER BY id;',
 				[gameId]
 			);
 			setPlayers(playersResult);
 
+			// 3. Корабель
 			const shipResult = await db.getAllAsync<ShipData>(
 				'SELECT * FROM ships WHERE game_id = ?;',
 				[gameId]
@@ -173,6 +176,7 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 				setShip(shipResult[0]);
 			}
 
+			// 4. Майно (chest_goods + adventure_decks)
 			const chestResult = await db.getAllAsync<ChestGood>(
 				'SELECT goods_id, activated FROM chest_goods WHERE game_id = ?;',
 				[gameId]
@@ -211,16 +215,19 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 
 			setAllGoods([...combinedGoods, ...adventureGoods]);
 
+			// 5. Картки здібностей (всі, для довідника)
 			const abilityResult = await db.getAllAsync<AbilityCard>(
 				'SELECT * FROM ability_cards ORDER BY name;'
 			);
 			setAbilityCards(abilityResult);
 
+			// 6. Картки досвіду (всі, для довідника)
 			const experienceResult = await db.getAllAsync<ExperienceCard>(
 				'SELECT * FROM experience_cards ORDER BY name;'
 			);
 			setExperienceCards(experienceResult);
 
+			// 7. Персонажі гри
 			const charactersResult = await db.getAllAsync<CharacterData>(
 				'SELECT * FROM characters WHERE game_id = ?;',
 				[gameId]
@@ -298,6 +305,8 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 			}
 		} else if (section.id === 'events') {
 			content = <EventCardView gameId={game?.id || 0} />;
+		} else if (section.id === 'tasks') {
+			content = <TaskView gameId={game?.id || 0} />;
 		} else {
 			content = (
 				<View style={styles.sectionContentInner}>
@@ -489,7 +498,7 @@ const styles = StyleSheet.create({
 		width: 50,
 		height: 25,
 		marginLeft: 16,
-		resizeMode: "contain",
+		resizeMode: 'contain',
 	},
 	sectionContent: {
 		backgroundColor: '#f5f0e8',
