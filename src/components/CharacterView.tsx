@@ -74,93 +74,90 @@ const CharacterView = ({ character, characterName, abilityCards, experienceCards
 	];
 	const experienceNames = experienceIds.map((id) => getExperienceName(id)).filter(Boolean);
 
-	// Перевіряємо, чи є ушкодження або втома
 	const hasDamageOrFatigue = character.damage > 0 || character.fatigue > 0;
-
-	// Перевіряємо, чи є стани
 	const hasStates = character.fright === 1 || character.madness === 1 || character.poisoning === 1 ||
 		character.weakness === 1 || character.low_morale === 1;
 
+	const hasAnyStatus = hasDamageOrFatigue || hasStates;
+
 	return (
 		<View style={styles.container}>
-				{hasDamageOrFatigue && hasStates && (
-					<View style={styles.row}>
-						{character.damage > 0 && (
-								<ImageBackground
-									source={DamageBackgroundImage}
-									style={styles.damageBackground}
-									resizeMode="contain"
-								>
-									<Text style={styles.labelDamage}>{character.damage}</Text>
-								</ImageBackground>
-						)}
-						{character.fatigue > 0 && (
-								<ImageBackground
-									source={character.fatigue === 1 ? FatigueBackgroundImage : FatigueTokensBackgroundImage}
-									style={styles.fatigueBackground}
-									resizeMode="contain"
-								/>
-						)}
-				
-
-				{/* Стани (рядок з іконками) – показуємо тільки якщо є стани */}
-						{character.fright === 1 && (
-							<View style={styles.iconWithLabel}>
-								<Image
-									source={FrightenedBackgroundImage}
-									style={styles.img}
-									resizeMode="contain"
-								/>
-							</View>
-						)}
-						{character.madness === 1 && (
-							<View style={styles.iconWithLabel}>
-								<Image
-									source={MadnessBackgroundImage}
-									style={styles.img}
-									resizeMode="contain"
-								/>
-							</View>
-						)}
-						{character.poisoning === 1 && (
-							<View style={styles.iconWithLabel}>
-								<Image
-									source={VenomBackgroundImage}
-									style={styles.img}
-									resizeMode="contain"
-								/>
-							</View>
-						)}
-						{character.weakness === 1 && (
-							<View style={styles.iconWithLabel}>
-								<Image
-									source={WeakenedBackgroundImage}
-									style={styles.img}
-									resizeMode="contain"
-								/>
-							</View>
-						)}
-						{character.low_morale === 1 && (
-							<View style={styles.iconWithLabel}>
-								<Image
-									source={LowMoraleBackgroundImage}
-									style={styles.img}
-									resizeMode="contain"
-								/>
-							</View>
-						)}
-					</View>
-				)}
-			{/* Повідомлення, якщо немає ні ушкоджень, ні втоми, ні станів */}
-			{!hasDamageOrFatigue && !hasStates && character.character_name_id < 5 && (
-				<View style={styles.messageContainer}>
-					<Text style={styles.noStates}>{characterName} здорова, сповнена сил та енергії і готова до пригод.</Text>
+			{/* Єдиний рядок для damage/fatigue та states */}
+			{hasAnyStatus && (
+				<View style={styles.row}>
+					{character.damage > 0 && (
+						<ImageBackground
+							source={DamageBackgroundImage}
+							style={styles.damageBackground}
+							resizeMode="contain"
+						>
+							<Text style={styles.labelDamage}>{character.damage}</Text>
+						</ImageBackground>
+					)}
+					{character.fatigue > 0 && (
+						<ImageBackground
+							source={character.fatigue === 1 ? FatigueBackgroundImage : FatigueTokensBackgroundImage}
+							style={styles.fatigueBackground}
+							resizeMode="contain"
+						/>
+					)}
+					{character.fright === 1 && (
+						<View style={styles.iconWithLabel}>
+							<Image
+								source={FrightenedBackgroundImage}
+								style={styles.img}
+								resizeMode="contain"
+							/>
+						</View>
+					)}
+					{character.madness === 1 && (
+						<View style={styles.iconWithLabel}>
+							<Image
+								source={MadnessBackgroundImage}
+								style={styles.img}
+								resizeMode="contain"
+							/>
+						</View>
+					)}
+					{character.poisoning === 1 && (
+						<View style={styles.iconWithLabel}>
+							<Image
+								source={VenomBackgroundImage}
+								style={styles.img}
+								resizeMode="contain"
+							/>
+						</View>
+					)}
+					{character.weakness === 1 && (
+						<View style={styles.iconWithLabel}>
+							<Image
+								source={WeakenedBackgroundImage}
+								style={styles.img}
+								resizeMode="contain"
+							/>
+						</View>
+					)}
+					{character.low_morale === 1 && (
+						<View style={styles.iconWithLabel}>
+							<Image
+								source={LowMoraleBackgroundImage}
+								style={styles.img}
+								resizeMode="contain"
+							/>
+						</View>
+					)}
 				</View>
 			)}
 
-			{!hasDamageOrFatigue && !hasStates && character.character_name_id > 4 && (
+			{/* Повідомлення, якщо немає нічого */}
+			{!hasAnyStatus && (
 				<View style={styles.messageContainer}>
-					<Text style={styles.noStates}>{characterName} здоровий, сповнений сил та енергії і готовий до пригод.</Text>
+					<Text style={styles.noStates}>
+						{character.character_name_id < 5
+							? `${characterName} здорова, сповнена сил та енергії і готова до пригод.`
+							: `${characterName} здоровий, сповнений сил та енергії і готовий до пригод.`
+						}
+					</Text>
 				</View>
 			)}
 
@@ -221,11 +218,11 @@ const styles = StyleSheet.create({
 	fatigueBackground: {
 		width: 80,
 		height: 65,
-		},
+	},
 	iconWithLabel: {
 		width: 60,
 		height: 60,
-		},
+	},
 	img: {
 		width: '100%',
 		height: '100%',
@@ -261,7 +258,6 @@ const styles = StyleSheet.create({
 	xpcard: {
 		width: 26,
 		height: 26,
-
 	},
 	xpcardText: {
 		fontSize: 20,

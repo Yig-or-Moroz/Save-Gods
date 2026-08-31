@@ -369,6 +369,7 @@ const styles = StyleSheet.create({
 		overflow: 'hidden',
 	},
 	goodsName: {
+		width: 240,
 		fontSize: 18,
 		fontFamily: 'Kyiv-Machine',
 		color: '#004d57',

@@ -18,18 +18,40 @@ type Character = {
 	name: string;
 };
 
+type CharacterFull = {
+	id: number;
+	character_name_id: number;
+	player_id: number | null;
+	damage: number;
+	fatigue: number;
+	fright: number;
+	madness: number;
+	poisoning: number;
+	weakness: number;
+	low_morale: number;
+	ability_card_id_1: number | null;
+	ability_card_id_2: number | null;
+	experience_card_id_1: number | null;
+	experience_card_id_2: number | null;
+	experience_card_id_3: number | null;
+};
+
 type Player = {
 	id: number;
 	name: string;
-	selectedCharacterIds: number[];
+	team_tokens: number;
+	ability_card_id_1: number | null;
+	ability_card_id_2: number | null;
+	ability_card_id_3: number | null;
+	captain: number;
 };
 
 const EditPlayersScreen = ({ navigation, route }: any) => {
 	const { gameId } = route.params;
 	const [isLoading, setIsLoading] = useState(true);
-	const [playerCount, setPlayerCount] = useState(4);
 	const [allCharacters, setAllCharacters] = useState<Character[]>([]);
 	const [players, setPlayers] = useState<Player[]>([]);
+	const [characters, setCharacters] = useState<CharacterFull[]>([]);
 
 	useEffect(() => {
 		loadData();
@@ -37,34 +59,36 @@ const EditPlayersScreen = ({ navigation, route }: any) => {
 
 	const loadData = async () => {
 		try {
-			// 1. Отримуємо всіх персонажів (крім капітана)
 			const data = await getCharacterNames();
 			const filtered = data.filter((c) => c.id !== 1);
 			setAllCharacters(filtered);
 
-			// 2. Отримуємо гравців для цієї гри (крім капітана)
-			const playersResult = await db.getAllAsync<{ id: number; name: string }>(
-				'SELECT id, name FROM players WHERE game_id = ? ORDER BY id;',
+			const playersResult = await db.getAllAsync<{
+				id: number;
+				name: string;
+				team_tokens: number;
+				ability_card_id_1: number | null;
+				ability_card_id_2: number | null;
+				ability_card_id_3: number | null;
+				captain: number;
+			}>(
+				'SELECT id, name, team_tokens, ability_card_id_1, ability_card_id_2, ability_card_id_3, captain FROM players WHERE game_id = ? ORDER BY id;',
 				[gameId]
 			);
+			setPlayers(playersResult);
 
-			// 3. Для кожного гравця отримуємо його персонажів
-			const playersWithChars: Player[] = [];
-			for (const p of playersResult) {
-				const charsResult = await db.getAllAsync<{ character_name_id: number }>(
-					'SELECT character_name_id FROM characters WHERE game_id = ? AND player_id = ? AND character_name_id != 1;',
-					[gameId, p.id]
-				);
-				const selectedIds = charsResult.map((c) => c.character_name_id);
-				playersWithChars.push({
-					id: p.id,
-					name: p.name,
-					selectedCharacterIds: selectedIds,
-				});
-			}
-
-			setPlayers(playersWithChars);
-			setPlayerCount(playersWithChars.length);
+			const charsResult = await db.getAllAsync<CharacterFull>(
+				`SELECT 
+          id, character_name_id, player_id,
+          damage, fatigue, fright, madness, poisoning, weakness, low_morale,
+          ability_card_id_1, ability_card_id_2,
+          experience_card_id_1, experience_card_id_2, experience_card_id_3
+        FROM characters 
+        WHERE game_id = ? AND character_name_id != 1
+        ORDER BY character_name_id;`,
+				[gameId]
+			);
+			setCharacters(charsResult);
 		} catch (error) {
 			console.error('Помилка завантаження даних:', error);
 			Alert.alert('Помилка', 'Не вдалося завантажити дані');
@@ -73,108 +97,185 @@ const EditPlayersScreen = ({ navigation, route }: any) => {
 		}
 	};
 
-	// Оновлення гравців при зміні кількості
-	useEffect(() => {
-		if (allCharacters.length === 0) return;
-
-		// Якщо кількість гравців збільшилась – додаємо порожніх
-		if (players.length < playerCount) {
-			const newPlayers: Player[] = [...players];
-			for (let i = players.length; i < playerCount; i++) {
-				newPlayers.push({
-					id: -i - 1, // тимчасовий від'ємний id для нових
-					name: '',
-					selectedCharacterIds: [],
-				});
-			}
-			setPlayers(newPlayers);
-		} else if (players.length > playerCount) {
-			// Якщо зменшилась – видаляємо останніх, а їхні персонажі повертаються в пул
-			const newPlayers = players.slice(0, playerCount);
-			setPlayers(newPlayers);
+	const addPlayer = () => {
+		if (players.length >= 4) {
+			Alert.alert('Увага', 'Максимум 4 гравці');
+			return;
 		}
-	}, [playerCount, allCharacters]);
-
-	const isCharacterAvailable = (playerIndex: number, characterId: number): boolean => {
-		const otherSelected = players
-			.filter((_, idx) => idx !== playerIndex)
-			.flatMap((p) => p.selectedCharacterIds);
-		const currentSelected = players[playerIndex]?.selectedCharacterIds || [];
-		return !otherSelected.includes(characterId) || currentSelected.includes(characterId);
+		const newPlayer: Player = {
+			id: -1,
+			name: '',
+			team_tokens: 0,
+			ability_card_id_1: null,
+			ability_card_id_2: null,
+			ability_card_id_3: null,
+			captain: 0,
+		};
+		setPlayers([...players, newPlayer]);
 	};
 
-	const toggleCharacter = (playerIndex: number, characterId: number) => {
-		const updatedPlayers = [...players];
-		const player = updatedPlayers[playerIndex];
-		const isSelected = player.selectedCharacterIds.includes(characterId);
-		if (isSelected) {
-			player.selectedCharacterIds = player.selectedCharacterIds.filter(
-				(id) => id !== characterId
-			);
-		} else {
-			player.selectedCharacterIds = [...player.selectedCharacterIds, characterId];
+	const removePlayer = () => {
+		if (players.length <= 1) {
+			Alert.alert('Увага', 'Повинен бути хоча б один гравець');
+			return;
 		}
-		setPlayers(updatedPlayers);
+		const options = [
+			...players.map((p, index) => ({
+				text: `${index + 1}. ${p.name || 'Без імені'}`,
+				style: 'default' as const,
+				onPress: () => confirmRemovePlayer(index),
+			})),
+			{
+				text: 'Скасувати',
+				style: 'cancel' as const,
+				onPress: () => { },
+			},
+		];
+		Alert.alert('Видалення гравця', 'Оберіть гравця, якого потрібно видалити:', options);
+	};
+
+	const confirmRemovePlayer = (indexToRemove: number) => {
+		const removedPlayer = players[indexToRemove];
+		if (!removedPlayer) return;
+
+		Alert.alert(
+			'Підтвердження',
+			`Ви впевнені, що хочете видалити гравця "${removedPlayer.name || 'Без імені'}"? Його персонажі стануть безхазяйними і їх можна буде призначити іншим гравцям.`,
+			[
+				{ text: 'Скасувати', style: 'cancel' as const, onPress: () => { } },
+				{
+					text: 'Видалити',
+					style: 'destructive' as const,
+					onPress: () => {
+						const updatedPlayers = [...players];
+						const removed = updatedPlayers.splice(indexToRemove, 1);
+						const updatedCharacters = characters.map((c) => {
+							if (c.player_id === removed[0].id) {
+								return { ...c, player_id: null };
+							}
+							return c;
+						});
+						setPlayers(updatedPlayers);
+						setCharacters(updatedCharacters);
+					},
+				},
+			]
+		);
+	};
+
+	const toggleCharacter = (playerId: number, characterId: number) => {
+		const charIndex = characters.findIndex(
+			(c) => c.character_name_id === characterId
+		);
+		if (charIndex === -1) return;
+
+		const char = characters[charIndex];
+		if (char.player_id === playerId) {
+			const updated = [...characters];
+			updated[charIndex] = { ...char, player_id: null };
+			setCharacters(updated);
+			return;
+		}
+		const updated = characters.map((c) => {
+			if (c.character_name_id === characterId) {
+				return { ...c, player_id: playerId };
+			}
+			return c;
+		});
+		setCharacters(updated);
+	};
+
+	const getPlayerCharacters = (playerId: number) => {
+		return characters.filter((c) => c.player_id === playerId);
 	};
 
 	const handleSave = async () => {
-		// Валідація
 		const emptyName = players.some((p) => !p.name.trim());
 		if (emptyName) {
 			Alert.alert('Помилка', 'Всі гравці повинні мати імена');
 			return;
 		}
-		const noCharacter = players.some((p) => p.selectedCharacterIds.length === 0);
-		if (noCharacter) {
-			Alert.alert('Помилка', 'Кожен гравець повинен обрати хоча б одного персонажа');
-			return;
-		}
-		const totalSelected = players.reduce((sum, p) => sum + p.selectedCharacterIds.length, 0);
-		if (totalSelected !== allCharacters.length) {
+		const unassigned = characters.filter((c) => c.player_id === null);
+		if (unassigned.length > 0) {
 			Alert.alert('Помилка', 'Всі персонажі повинні бути розподілені між гравцями');
 			return;
 		}
+		for (const player of players) {
+			const hasChars = characters.some((c) => c.player_id === player.id);
+			if (!hasChars) {
+				Alert.alert('Помилка', `Гравець "${player.name}" не має жодного персонажа`);
+				return;
+			}
+		}
 
 		try {
-			// 1. Видаляємо всіх гравців (крім капітана) та їхніх персонажів
-			await db.runAsync(
-				'DELETE FROM players WHERE game_id = ? AND id IN (SELECT id FROM players WHERE game_id = ? AND id != 0);',
-				[gameId, gameId]
-			);
-			// Але простіше: видалити всіх гравців, окрім капітана, через запит
-			// Оскільки капітан має id=0, але він не в таблиці players (player_id=0 в characters)
-			// Тому видаляємо всіх players, де game_id = gameId
 			await db.runAsync('DELETE FROM players WHERE game_id = ?;', [gameId]);
+			await db.runAsync('DELETE FROM characters WHERE game_id = ? AND player_id != 0;', [gameId]);
 
-			// 2. Додаємо нових гравців та їхніх персонажів
+			const oldToNewId: { [key: number]: number } = {};
 			for (const player of players) {
-				const playerResult = await db.runAsync(
+				const result = await db.runAsync(
 					`INSERT INTO players (game_id, name, team_tokens, ability_card_id_1, ability_card_id_2, ability_card_id_3, captain)
-           VALUES (?, ?, 0, NULL, NULL, NULL, 0);`,
-					[gameId, player.name.trim()]
+           VALUES (?, ?, ?, ?, ?, ?, ?);`,
+					[
+						gameId,
+						player.name.trim(),
+						player.team_tokens || 0,
+						player.ability_card_id_1 || null,
+						player.ability_card_id_2 || null,
+						player.ability_card_id_3 || null,
+						player.captain || 0,
+					]
 				);
-				const playerId = playerResult.lastInsertRowId;
+				oldToNewId[player.id] = result.lastInsertRowId;
+			}
 
-				for (const characterId of player.selectedCharacterIds) {
-					await db.runAsync(
-						`INSERT INTO characters (
-              game_id, player_id, character_name_id,
-              damage, fatigue, fright, madness, poisoning, weakness, low_morale,
-              ability_card_id_1, ability_card_id_2,
-              experience_card_id_1, experience_card_id_2, experience_card_id_3
-            ) VALUES (?, ?, ?, 0, 0, 0, 0, 0, 0, 0, NULL, NULL, NULL, NULL, NULL);`,
-						[gameId, playerId, characterId]
-					);
+			for (const char of characters) {
+				const newPlayerId = oldToNewId[char.player_id!];
+				if (newPlayerId === undefined) {
+					console.error('Не знайдено новий player_id для', char.player_id);
+					continue;
 				}
+				await db.runAsync(
+					`INSERT INTO characters (
+            game_id, player_id, character_name_id,
+            damage, fatigue, fright, madness, poisoning, weakness, low_morale,
+            ability_card_id_1, ability_card_id_2,
+            experience_card_id_1, experience_card_id_2, experience_card_id_3
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+					[
+						gameId,
+						newPlayerId,
+						char.character_name_id,
+						char.damage || 0,
+						char.fatigue || 0,
+						char.fright || 0,
+						char.madness || 0,
+						char.poisoning || 0,
+						char.weakness || 0,
+						char.low_morale || 0,
+						char.ability_card_id_1 || null,
+						char.ability_card_id_2 || null,
+						char.experience_card_id_1 || null,
+						char.experience_card_id_2 || null,
+						char.experience_card_id_3 || null,
+					]
+				);
 			}
 
 			Alert.alert('Успіх', 'Зміни збережено!', [
-				{ text: 'ОК', onPress: () => navigation.goBack() }
+				{ text: 'ОК', onPress: () => navigation.goBack() },
 			]);
 		} catch (error) {
 			console.error('Помилка збереження:', error);
 			Alert.alert('Помилка', 'Не вдалося зберегти зміни');
 		}
+	};
+
+	const isCharacterAvailable = (playerId: number, characterId: number): boolean => {
+		const char = characters.find((c) => c.character_name_id === characterId);
+		if (!char) return false;
+		return char.player_id === null || char.player_id === playerId;
 	};
 
 	if (isLoading) {
@@ -203,71 +304,72 @@ const EditPlayersScreen = ({ navigation, route }: any) => {
 				<View style={styles.field}>
 					<Text style={styles.label}>Кількість гравців</Text>
 					<View style={styles.radioGroup}>
-						{[1, 2, 3, 4].map((num) => (
-							<TouchableOpacity
-								key={num}
-								style={[styles.radioButton, playerCount === num && styles.radioSelected]}
-								onPress={() => setPlayerCount(num)}
-							>
-								<Text style={[styles.radioText, playerCount === num && styles.radioTextSelected]}>
-									{num}
-								</Text>
-							</TouchableOpacity>
-						))}
+						<TouchableOpacity style={styles.radioButton} onPress={removePlayer}>
+							<Text style={styles.radioText}>➖</Text>
+						</TouchableOpacity>
+						<Text style={styles.counterText}>{players.length}</Text>
+						<TouchableOpacity style={styles.radioButton} onPress={addPlayer}>
+							<Text style={styles.radioText}>➕</Text>
+						</TouchableOpacity>
 					</View>
 				</View>
 
-				{players.map((player, index) => (
-					<View key={index} style={styles.playerBlock}>
-						<Text style={styles.playerTitle}>
-							{index === 0 ? 'Перший' : index === 1 ? 'Другий' : index === 2 ? 'Третій' : 'Четвертий'} гравець
-						</Text>
-						<TextInput
-							style={styles.input}
-							value={player.name}
-							onChangeText={(text) => {
-								const updated = [...players];
-								updated[index].name = text;
-								setPlayers(updated);
-							}}
-							placeholder="Ім'я гравця"
-						/>
-						<View style={styles.checkboxGroup}>
-							{allCharacters.map((char) => {
-								const available = isCharacterAvailable(index, char.id);
-								const isSelected = player.selectedCharacterIds.includes(char.id);
-								return (
-									<TouchableOpacity
-										key={char.id}
-										style={[
-											styles.checkboxRow,
-											!available && styles.checkboxRowDisabled,
-										]}
-										onPress={() => available && toggleCharacter(index, char.id)}
-										activeOpacity={available ? 0.7 : 1}
-										disabled={!available}
-									>
-										<View
+				{players.map((player, index) => {
+					const playerChars = getPlayerCharacters(player.id);
+					return (
+						<View key={index} style={styles.playerBlock}>
+							<Text style={styles.playerTitle}>
+								{index === 0 ? 'Перший' : index === 1 ? 'Другий' : index === 2 ? 'Третій' : 'Четвертий'} гравець
+							</Text>
+							<TextInput
+								style={styles.input}
+								value={player.name}
+								onChangeText={(text) => {
+									const updated = [...players];
+									updated[index].name = text;
+									setPlayers(updated);
+								}}
+								placeholder="Ім'я гравця"
+							/>
+							<View style={styles.checkboxGroup}>
+								{allCharacters.map((char) => {
+									const available = isCharacterAvailable(player.id, char.id);
+									const isSelected = playerChars.some(
+										(c) => c.character_name_id === char.id
+									);
+									return (
+										<TouchableOpacity
+											key={char.id}
 											style={[
-												styles.checkbox,
-												isSelected && styles.checkboxChecked,
-												!available && styles.checkboxDisabled,
+												styles.checkboxRow,
+												!available && styles.checkboxRowDisabled,
 											]}
-										/>
-										<Text
-											style={[
-												styles.checkboxLabel,
-												!available && styles.checkboxLabelDisabled,
-											]}
+											onPress={() => available && toggleCharacter(player.id, char.id)}
+											activeOpacity={available ? 0.7 : 1}
+											disabled={!available}
 										>
-											{char.name}
-										</Text>
-									</TouchableOpacity>
-								);
-							})}
+											<View
+												style={[
+													styles.checkbox,
+													isSelected && styles.checkboxChecked,
+													!available && styles.checkboxDisabled,
+												]}
+											/>
+											<Text
+												style={[
+													styles.checkboxLabel,
+													!available && styles.checkboxLabelDisabled,
+												]}
+											>
+												{char.name}
+											</Text>
+										</TouchableOpacity>
+									);
+								})}
+							</View>
 						</View>
-					</View>
-				))}
+					);
+				})}
 
 				<TouchableOpacity style={styles.saveButton} onPress={handleSave}>
 					<Text style={styles.saveButtonText}>Зберегти</Text>
@@ -351,7 +453,8 @@ const styles = StyleSheet.create({
 	},
 	radioGroup: {
 		flexDirection: 'row',
-		gap: 12,
+		alignItems: 'center',
+		gap: 16,
 	},
 	radioButton: {
 		width: 50,
@@ -363,16 +466,21 @@ const styles = StyleSheet.create({
 		justifyContent: 'center',
 		backgroundColor: '#fff',
 	},
-	radioSelected: {
-		backgroundColor: '#004d57',
-	},
 	radioText: {
-		fontSize: 18,
+		fontSize: 24,
 		color: '#004d57',
 		fontFamily: 'Kyiv-Machine',
 	},
-	radioTextSelected: {
+	counterText: {
+		width: 50,
+		height: 50,
+		borderRadius: 25,
+		backgroundColor: '#004d57',
+		textAlign: 'center',
+		textAlignVertical: 'center',
+		fontSize: 25,
 		color: '#fff',
+		fontFamily: 'Kyiv-Machine',
 	},
 	playerBlock: {
 		backgroundColor: '#fff',
