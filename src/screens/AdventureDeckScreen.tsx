@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+
 import {
 	View,
 	Text,
@@ -10,10 +11,14 @@ import {
 	TextInput,
 	FlatList,
 } from 'react-native';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Picker } from '@react-native-picker/picker';
+
 import { db } from '../database';
+
 import Ionicons from '@expo/vector-icons/Ionicons';
+
+import AbilitySelector from '../components/AbilitySelector';
 
 type AdventureCard = {
 	id: number;
@@ -22,21 +27,68 @@ type AdventureCard = {
 	name: string;
 	type: string;
 	totem: number; // 0 або 1
-	activated: number; // 0 або 1 – нове поле
+	activated: number; // 0 або 1
+};
+
+type TypeOption = {
+	id: string;
+	name: string;
 };
 
 const AdventureDeckScreen = ({ navigation, route }: any) => {
 	const { gameId } = route.params;
+
+	// =====================================================
+	// STATE
+	// =====================================================
+
 	const [isLoading, setIsLoading] = useState(true);
-	const [cards, setCards] = useState<AdventureCard[]>([]);
 
-	// Стан форми
-	const [cardNumber, setCardNumber] = useState('');
-	const [cardName, setCardName] = useState('');
-	const [cardType, setCardType] = useState('-');
-	const [totem, setTotem] = useState<boolean>(false);
+	const [cards, setCards] =
+		useState<AdventureCard[]>([]);
 
-	const typeOptions = ['Зброя', 'Рецепт', 'Спорядження', 'Пасажир', 'Тварина', '-'];
+	const [cardNumber, setCardNumber] =
+		useState('');
+
+	const [cardName, setCardName] =
+		useState('');
+
+	const [cardType, setCardType] =
+		useState('-');
+
+	const [totem, setTotem] =
+		useState<boolean>(false);
+
+	// =====================================================
+	// TYPE OPTIONS
+	// =====================================================
+
+	const typeOptions: TypeOption[] = [
+		{
+			id: 'Зброя',
+			name: 'Зброя',
+		},
+		{
+			id: 'Рецепт',
+			name: 'Рецепт',
+		},
+		{
+			id: 'Спорядження',
+			name: 'Спорядження',
+		},
+		{
+			id: 'Пасажир',
+			name: 'Пасажир',
+		},
+		{
+			id: 'Тварина',
+			name: 'Тварина',
+		},
+	];
+
+	// =====================================================
+	// LOAD CARDS
+	// =====================================================
 
 	useEffect(() => {
 		loadCards();
@@ -44,69 +96,137 @@ const AdventureDeckScreen = ({ navigation, route }: any) => {
 
 	const loadCards = async () => {
 		try {
-			const result = await db.getAllAsync<AdventureCard>(
-				'SELECT * FROM adventure_decks WHERE game_id = ? ORDER BY card_number;',
-				[gameId]
-			);
+			const result =
+				await db.getAllAsync<AdventureCard>(
+					'SELECT * FROM adventure_decks WHERE game_id = ? ORDER BY card_number;',
+					[gameId]
+				);
+
 			setCards(result);
 		} catch (error) {
-			console.error('Помилка завантаження колоди пригод:', error);
-			Alert.alert('Помилка', 'Не вдалося завантажити колоду пригод');
+			console.error(
+				'Помилка завантаження колоди пригод:',
+				error
+			);
+
+			Alert.alert(
+				'Помилка',
+				'Не вдалося завантажити колоду пригод'
+			);
 		} finally {
 			setIsLoading(false);
 		}
 	};
 
+	// =====================================================
+	// ADD CARD
+	// =====================================================
+
 	const handleAddCard = async () => {
-		const num = parseInt(cardNumber);
-		if (!cardNumber.trim() || isNaN(num)) {
-			Alert.alert('Помилка', 'Введіть номер картки');
+		const num = parseInt(cardNumber, 10);
+
+		if (
+			!cardNumber.trim() ||
+			isNaN(num)
+		) {
+			Alert.alert(
+				'Помилка',
+				'Введіть номер картки'
+			);
 			return;
 		}
+
 		if (!cardName.trim()) {
-			Alert.alert('Помилка', 'Введіть назву картки');
+			Alert.alert(
+				'Помилка',
+				'Введіть назву картки'
+			);
 			return;
 		}
 
 		try {
-			// Додаємо activated = 0 за замовчуванням
 			await db.runAsync(
-				`INSERT INTO adventure_decks (game_id, card_number, name, type, totem, activated)
-         VALUES (?, ?, ?, ?, ?, ?);`,
-				[gameId, num, cardName.trim(), cardType, totem ? 1 : 0, 0]
+				`INSERT INTO adventure_decks
+				(
+					game_id,
+					card_number,
+					name,
+					type,
+					totem,
+					activated
+				)
+				VALUES (?, ?, ?, ?, ?, ?);`,
+				[
+					gameId,
+					num,
+					cardName.trim(),
+					cardType,
+					totem ? 1 : 0,
+					0,
+				]
 			);
+
 			// Очищаємо форму
+
 			setCardNumber('');
 			setCardName('');
 			setCardType('-');
 			setTotem(false);
+
 			// Оновлюємо список
+
 			await loadCards();
 		} catch (error) {
-			console.error('Помилка додавання картки:', error);
-			Alert.alert('Помилка', 'Не вдалося додати картку');
+			console.error(
+				'Помилка додавання картки:',
+				error
+			);
+
+			Alert.alert(
+				'Помилка',
+				'Не вдалося додати картку'
+			);
 		}
 	};
 
-	const handleDeleteCard = (cardId: number, cardName: string) => {
+	// =====================================================
+	// DELETE CARD
+	// =====================================================
+
+	const handleDeleteCard = (
+		cardId: number,
+		cardName: string
+	) => {
 		Alert.alert(
 			'Видалити картку',
 			`Ви впевнені, що хочете видалити картку "${cardName}"?`,
 			[
-				{ text: 'Скасувати', style: 'cancel' },
+				{
+					text: 'Скасувати',
+					style: 'cancel',
+				},
 				{
 					text: 'Видалити',
 					style: 'destructive',
+
 					onPress: async () => {
 						try {
 							await db.runAsync(
 								'DELETE FROM adventure_decks WHERE id = ?;',
 								[cardId]
 							);
+
 							await loadCards();
 						} catch (error) {
-							console.error('Помилка видалення картки:', error);
-							Alert.alert('Помилка', 'Не вдалося видалити картку');
+							console.error(
+								'Помилка видалення картки:',
+								error
+							);
+
+							Alert.alert(
+								'Помилка',
+								'Не вдалося видалити картку'
+							);
 						}
 					},
 				},
@@ -114,175 +234,489 @@ const AdventureDeckScreen = ({ navigation, route }: any) => {
 		);
 	};
 
-	// Переключення активації картки
-	const toggleActivated = async (cardId: number, currentActivated: number) => {
-		const newValue = currentActivated === 1 ? 0 : 1;
+	// =====================================================
+	// TOGGLE ACTIVATED
+	// =====================================================
+
+	const toggleActivated = async (
+		cardId: number,
+		currentActivated: number
+	) => {
+		const newValue =
+			currentActivated === 1
+				? 0
+				: 1;
+
 		try {
 			await db.runAsync(
 				'UPDATE adventure_decks SET activated = ? WHERE id = ?;',
-				[newValue, cardId]
+				[
+					newValue,
+					cardId,
+				]
 			);
-			// Оновлюємо локальний стан
+
 			setCards((prevCards) =>
 				prevCards.map((card) =>
-					card.id === cardId ? { ...card, activated: newValue } : card
+					card.id === cardId
+						? {
+								...card,
+								activated: newValue,
+						  }
+						: card
 				)
 			);
 		} catch (error) {
-			console.error('Помилка активації картки:', error);
-			Alert.alert('Помилка', 'Не вдалося змінити стан активації');
+			console.error(
+				'Помилка активації картки:',
+				error
+			);
+
+			Alert.alert(
+				'Помилка',
+				'Не вдалося змінити стан активації'
+			);
 		}
 	};
 
-	const renderCard = ({ item }: { item: AdventureCard }) => (
-		<View style={styles.cardItem}>
-			<Text style={styles.cardNumber}>{item.card_number}</Text>
-			<Text style={styles.cardName}>{item.name}</Text>
-			<Text style={styles.cardTotem}>{item.totem === 1 ? '🐾' : ''}</Text>
+	// =====================================================
+	// RENDER CARD
+	// =====================================================
 
-			{/* Чекбокс "А" для активації */}
-			<TouchableOpacity
-				style={[styles.activateBox, item.activated === 1 && styles.activateBoxActive]}
-				onPress={() => toggleActivated(item.id, item.activated)}
-				hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+	const renderCard = ({
+		item,
+	}: {
+		item: AdventureCard;
+	}) => (
+		<View style={styles.cardItem}>
+
+			<Text style={styles.cardNumber}>
+				{item.card_number}
+			</Text>
+
+			<Text
+				style={styles.cardName}
+				numberOfLines={2}
 			>
-				<Text style={[styles.activateText, item.activated === 1 && styles.activateTextActive]}>
+				{item.name}
+			</Text>
+
+			<Text style={styles.cardTotem}>
+				{item.totem === 1
+					? '🐾'
+					: ''}
+			</Text>
+
+			{/* Активувати */}
+
+			<TouchableOpacity
+				style={[
+					styles.activateBox,
+					item.activated === 1 &&
+						styles.activateBoxActive,
+				]}
+				onPress={() =>
+					toggleActivated(
+						item.id,
+						item.activated
+					)
+				}
+				hitSlop={{
+					top: 16,
+					bottom: 16,
+					left: 16,
+					right: 16,
+				}}
+			>
+				<Text
+					style={[
+						styles.activateText,
+						item.activated === 1 &&
+							styles.activateTextActive,
+					]}
+				>
 					А
 				</Text>
 			</TouchableOpacity>
 
+			{/* Видалити */}
+
 			<TouchableOpacity
 				style={styles.deleteButton}
-				onPress={() => handleDeleteCard(item.id, item.name)}
+				onPress={() =>
+					handleDeleteCard(
+						item.id,
+						item.name
+					)
+				}
 			>
-				<Ionicons name="trash-outline" size={22} color="#691716" />
+				<Ionicons
+					name="trash-outline"
+					size={22}
+					color="#691716"
+				/>
 			</TouchableOpacity>
+
 		</View>
 	);
 
+	// =====================================================
+	// LOADING
+	// =====================================================
+
 	if (isLoading) {
 		return (
-			<SafeAreaView style={styles.loadingContainer}>
-				<ActivityIndicator size="large" color="#004d57" />
-				<Text style={styles.loadingText}>Завантаження...</Text>
+			<SafeAreaView
+				style={
+					styles.loadingContainer
+				}
+			>
+				<ActivityIndicator
+					size="large"
+					color="#004d57"
+				/>
+
+				<Text
+					style={
+						styles.loadingText
+					}
+				>
+					Завантаження...
+				</Text>
 			</SafeAreaView>
 		);
 	}
 
+	// =====================================================
+	// MAIN UI
+	// =====================================================
+
 	return (
 		<SafeAreaView style={styles.container}>
+
+			{/* ================================================= */}
+			{/* HEADER */}
+			{/* ================================================= */}
+
 			<View style={styles.headerWrapper}>
-				<View style={styles.backButtonWrapper}>
-					<TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-						<Ionicons name="arrow-back" size={22} color="#004d57" />
+
+				<View
+					style={
+						styles.backButtonWrapper
+					}
+				>
+					<TouchableOpacity
+						onPress={() =>
+							navigation.goBack()
+						}
+						style={
+							styles.backButton
+						}
+					>
+						<Ionicons
+							name="arrow-back"
+							size={22}
+							color="#004d57"
+						/>
 					</TouchableOpacity>
 				</View>
-				<View style={styles.titleWrapper}>
-					<Text style={styles.header}>Колода пригод</Text>
+
+				<View
+					style={
+						styles.titleWrapper
+					}
+				>
+					<Text
+						style={
+							styles.header
+						}
+					>
+						Колода пригод
+					</Text>
 				</View>
+
 			</View>
 
-			<ScrollView contentContainerStyle={styles.scrollContent}>
-				{/* Форма додавання */}
+			<ScrollView
+				contentContainerStyle={
+					styles.scrollContent
+				}
+			>
+
+				{/* ================================================= */}
+				{/* ADD FORM */}
+				{/* ================================================= */}
+
 				<View style={styles.form}>
+
+					{/* Номер */}
+
 					<View style={styles.field}>
-						<Text style={styles.label}>Номер картки</Text>
+
+						<Text style={styles.label}>
+							Номер картки
+						</Text>
+
 						<TextInput
-							style={styles.input}
-							value={cardNumber}
-							onChangeText={setCardNumber}
+							style={
+								styles.input
+							}
+							value={
+								cardNumber
+							}
+							onChangeText={
+								setCardNumber
+							}
 							keyboardType="numeric"
 							placeholder="Введіть номер"
 						/>
+
 					</View>
 
+					{/* Назва */}
+
 					<View style={styles.field}>
-						<Text style={styles.label}>Назва картки</Text>
+
+						<Text style={styles.label}>
+							Назва картки
+						</Text>
+
 						<TextInput
-							style={styles.input}
+							style={
+								styles.input
+							}
 							value={cardName}
-							onChangeText={setCardName}
+							onChangeText={
+								setCardName
+							}
 							placeholder="Введіть назву"
 						/>
+
 					</View>
+
+					{/* Тип */}
 
 					<View style={styles.field}>
-						<Text style={styles.label}>Тип картки</Text>
-						<View style={styles.pickerContainer}>
-							<Picker
-								selectedValue={cardType}
-								onValueChange={(itemValue) => setCardType(itemValue)}
-								style={styles.picker}
-							>
-								{typeOptions.map((type) => (
-									<Picker.Item key={type} label={type} value={type} />
-								))}
-							</Picker>
-						</View>
+
+						<Text style={styles.label}>
+							Тип картки
+						</Text>
+
+						<AbilitySelector
+							value={
+								cardType ===
+								'-'
+									? null
+									: cardType
+							}
+							options={
+								typeOptions
+							}
+							onChange={(
+								value
+							) => {
+								if (
+									value ===
+									null
+								) {
+									setCardType(
+										'-'
+									);
+								} else {
+									setCardType(
+										value
+									);
+								}
+							}}
+							placeholder="-"
+							title="Оберіть тип картки"
+						/>
+
 					</View>
+
+					{/* Тотем */}
 
 					<View style={styles.field}>
-						<Text style={styles.label}>🐾Тотем:</Text>
-						<View style={styles.radioGroup}>
+
+						<Text style={styles.label}>
+							🐾Тотем:
+						</Text>
+
+						<View
+							style={
+								styles.radioGroup
+							}
+						>
+
 							<TouchableOpacity
-								style={[styles.radioButton, totem === true && styles.radioSelected]}
-								onPress={() => setTotem(true)}
+								style={[
+									styles.radioButton,
+									totem ===
+										true &&
+										styles.radioSelected,
+								]}
+								onPress={() =>
+									setTotem(
+										true
+									)
+								}
 							>
-								<Text style={[styles.radioText, totem === true && styles.radioTextSelected]}>Так</Text>
+								<Text
+									style={[
+										styles.radioText,
+										totem ===
+											true &&
+											styles.radioTextSelected,
+									]}
+								>
+									Так
+								</Text>
 							</TouchableOpacity>
+
 							<TouchableOpacity
-								style={[styles.radioButton, totem === false && styles.radioSelected]}
-								onPress={() => setTotem(false)}
+								style={[
+									styles.radioButton,
+									totem ===
+										false &&
+										styles.radioSelected,
+								]}
+								onPress={() =>
+									setTotem(
+										false
+									)
+								}
 							>
-								<Text style={[styles.radioText, totem === false && styles.radioTextSelected]}>Ні</Text>
+								<Text
+									style={[
+										styles.radioText,
+										totem ===
+											false &&
+											styles.radioTextSelected,
+									]}
+								>
+									Ні
+								</Text>
 							</TouchableOpacity>
+
 						</View>
+
 					</View>
 
-					<TouchableOpacity style={styles.addButton} onPress={handleAddCard}>
-						<Text style={styles.addButtonText}>Додати картку пригод</Text>
+					{/* Add */}
+
+					<TouchableOpacity
+						style={
+							styles.addButton
+						}
+						onPress={
+							handleAddCard
+						}
+					>
+						<Text
+							style={
+								styles.addButtonText
+							}
+						>
+							Додати картку пригод
+						</Text>
 					</TouchableOpacity>
+
 				</View>
 
-				{/* Список карток */}
-				<Text style={styles.listTitle}>Список карток:</Text>
+				{/* ================================================= */}
+				{/* LIST */}
+				{/* ================================================= */}
+
+				<Text
+					style={
+						styles.listTitle
+					}
+				>
+					Список карток:
+				</Text>
+
 				{cards.length === 0 ? (
-					<Text style={styles.emptyText}>Немає карток пригод</Text>
+					<Text
+						style={
+							styles.emptyText
+						}
+					>
+						Немає карток пригод
+					</Text>
 				) : (
 					<FlatList
 						data={cards}
-						keyExtractor={(item) => item.id.toString()}
-						renderItem={renderCard}
-						scrollEnabled={false}
-						contentContainerStyle={styles.listContainer}
+						keyExtractor={(
+							item
+						) =>
+							item.id.toString()
+						}
+						renderItem={
+							renderCard
+						}
+						scrollEnabled={
+							false
+						}
+						contentContainerStyle={
+							styles.listContainer
+						}
 					/>
 				)}
+
 			</ScrollView>
+
+			{/* ================================================= */}
+			{/* FOOTER */}
+			{/* ================================================= */}
+
 			<View style={styles.footer}>
-				<Text style={styles.subHeaderTextA}>А</Text>
-				<Text style={styles.subHeaderText}>- картку активовано</Text>
+
+				<Text
+					style={
+						styles.subHeaderTextA
+					}
+				>
+					А
+				</Text>
+
+				<Text
+					style={
+						styles.subHeaderText
+					}
+				>
+					- картку активовано
+				</Text>
+
 			</View>
+
 		</SafeAreaView>
 	);
 };
+
+// =====================================================
+// STYLES
+// =====================================================
 
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
 		backgroundColor: '#f5f0e8',
 	},
+
 	loadingContainer: {
 		flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center',
 		backgroundColor: '#f5f0e8',
 	},
+
 	loadingText: {
 		marginTop: 16,
 		fontSize: 18,
 		color: '#004d57',
 		fontFamily: 'Kyiv-Machine',
 	},
+
 	headerWrapper: {
 		flexDirection: 'column',
 		width: '100%',
@@ -292,10 +726,12 @@ const styles = StyleSheet.create({
 		borderBottomWidth: 1,
 		borderBottomColor: '#004d57',
 	},
+
 	backButtonWrapper: {
 		alignSelf: 'flex-start',
 		marginBottom: 8,
 	},
+
 	backButton: {
 		width: 40,
 		height: 40,
@@ -306,40 +742,48 @@ const styles = StyleSheet.create({
 		justifyContent: 'center',
 		backgroundColor: '#fff',
 	},
+
 	titleWrapper: {
 		alignSelf: 'center',
 		width: '100%',
 		marginBottom: 16,
 	},
+
 	header: {
 		fontSize: 28,
 		fontFamily: 'Kyiv-Machine',
 		color: '#004d57',
 		textAlign: 'center',
 	},
+
 	scrollContent: {
 		padding: 20,
 		paddingBottom: 40,
 	},
+
 	form: {
 		backgroundColor: '#fff',
 		borderRadius: 12,
 		padding: 16,
 		marginBottom: 20,
+
 		shadowColor: '#000',
 		shadowOpacity: 0.05,
 		shadowRadius: 4,
 		elevation: 2,
 	},
+
 	field: {
 		marginBottom: 16,
 	},
+
 	label: {
 		fontSize: 16,
 		fontFamily: 'Kyiv-Machine',
 		color: '#004d57',
 		marginBottom: 6,
 	},
+
 	input: {
 		borderWidth: 1,
 		borderColor: '#ccc',
@@ -349,22 +793,13 @@ const styles = StyleSheet.create({
 		backgroundColor: '#fff',
 		fontFamily: 'Kyiv-Machine',
 	},
-	pickerContainer: {
-		borderWidth: 1,
-		borderColor: '#ccc',
-		borderRadius: 8,
-		backgroundColor: '#fff',
-	},
-	picker: {
-		height: 60,
-		width: '100%',
-		color: '#004d57',
-	},
+
 	radioGroup: {
 		flexDirection: 'row',
 		gap: 16,
 		marginTop: 6,
 	},
+
 	radioButton: {
 		paddingVertical: 8,
 		paddingHorizontal: 20,
@@ -373,17 +808,21 @@ const styles = StyleSheet.create({
 		borderColor: '#004d57',
 		backgroundColor: '#fff',
 	},
+
 	radioSelected: {
 		backgroundColor: '#004d57',
 	},
+
 	radioText: {
 		fontSize: 16,
 		color: '#004d57',
 		fontFamily: 'Kyiv-Machine',
 	},
+
 	radioTextSelected: {
 		color: '#fff',
 	},
+
 	addButton: {
 		backgroundColor: '#004d57',
 		paddingVertical: 14,
@@ -391,75 +830,97 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		marginTop: 8,
 	},
+
 	addButtonText: {
 		fontSize: 18,
 		color: '#fff',
 		fontFamily: 'Kyiv-Machine',
 		letterSpacing: 1,
 	},
+
 	listTitle: {
 		fontSize: 20,
 		fontFamily: 'Kyiv-Machine',
 		color: '#004d57',
 		marginBottom: 12,
 	},
+
 	listContainer: {
 		paddingBottom: 10,
 	},
+
 	cardItem: {
 		flexDirection: 'row',
 		alignItems: 'center',
+
 		backgroundColor: '#fff',
+
 		borderRadius: 8,
+
 		padding: 12,
+
 		marginBottom: 8,
+
 		shadowColor: '#000',
 		shadowOpacity: 0.05,
 		shadowRadius: 2,
 		elevation: 1,
 	},
+
 	cardNumber: {
 		fontSize: 16,
 		fontFamily: 'Kyiv-Machine',
 		color: '#004d57',
 		width: 30,
 	},
+
 	cardName: {
 		fontSize: 16,
 		fontFamily: 'Kyiv-Machine',
 		color: '#004d57',
 		flex: 1,
 	},
+
 	cardTotem: {
 		fontSize: 16,
 		color: '#004d57',
 		marginRight: 10,
 	},
+
 	activateBox: {
 		width: 28,
 		height: 28,
+
 		borderRadius: 4,
 		borderWidth: 2,
 		borderColor: '#004d57',
+
 		backgroundColor: '#fff',
+
 		alignItems: 'center',
 		justifyContent: 'center',
+
 		marginRight: 8,
 	},
+
 	activateBoxActive: {
 		backgroundColor: '#004d57',
 	},
+
 	activateText: {
 		fontSize: 20,
 		fontFamily: 'Kyiv-Machine',
 		color: '#aaa',
 	},
+
 	activateTextActive: {
 		color: '#fff',
 	},
+
 	deleteButton: {
 		padding: 4,
 	},
+
 	emptyText: {
 		fontSize: 16,
 		color: '#999',
@@ -467,32 +928,47 @@ const styles = StyleSheet.create({
 		textAlign: 'center',
 		marginTop: 20,
 	},
+
 	footer: {
 		height: 60,
+
 		flexDirection: 'row',
+
 		justifyContent: 'flex-start',
 		alignItems: 'center',
+
 		paddingHorizontal: 16,
 		paddingVertical: 8,
+
 		gap: 4,
+
 		borderTopWidth: 1,
 		borderTopColor: '#004d57',
 	},
+
 	subHeaderText: {
 		fontSize: 16,
 		fontFamily: 'Kyiv-Machine',
 		color: '#004d57',
 	},
+
 	subHeaderTextA: {
 		width: 26,
 		height: 26,
+
 		textAlign: 'center',
+
 		borderRadius: 4,
+
 		backgroundColor: '#004d57',
+
 		fontSize: 22,
+
 		fontFamily: 'Kyiv-Machine',
+
 		color: '#fff',
 	},
 });
 
 export default AdventureDeckScreen;
+
