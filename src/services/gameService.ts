@@ -12,15 +12,26 @@ import {
 export type { SavedGame };
 
 import {
+	getShip,
+	updateShip,
+	type Ship,
+} from '../repositories/shipRepository';
+
+export type { Ship };
+
+import {
 	createPlayer,
 	getPlayers,
 	requirePlayer,
 	updatePlayer,
+	deletePlayer,
+	getPlayersForLoadGameScreen,
 } from '../repositories/playerRepository';
 
 import {
 	createCharacter,
 	getCharacters,
+	getCharactersWithNames,
 	getCharactersForPlayer,
 	getPlayableCharacterNames,
 	getExperienceCardsForCharacterNames,
@@ -66,7 +77,16 @@ import {
 
 export type { EventCard, EventDeck };
 
+import {
+	getTaskCards,
+	requireTaskCard,
+	addTaskCard,
+	deleteTaskCard,
+	updateTaskCardDone,
+	type TaskCard,
+} from '../repositories/taskDeckRepository';
 
+export type { TaskCard };
 
 import {
 	validateCharacterDistribution,
@@ -87,7 +107,6 @@ import type {
 	AbilityCard,
 	ExperienceCard,
 } from '../models/types';
-
 
 
 // ============================================================
@@ -129,6 +148,7 @@ export type ChangePlayersInput = {
 	characters: EditableCharacterAssignment[];
 };
 
+
 // ============================================================
 // GAME SCREEN
 // ============================================================
@@ -160,11 +180,27 @@ export type SaveGameScreenInput = {
 	numberOfLosses: number;
 	win: 0 | 1;
 };
+
+
 // ============================================================
 // SAVE GAMES SCREEN
 // ============================================================
+
 export type SaveGamesScreenData = {
 	games: SavedGame[];
+};
+
+// ============================================================
+// EDIT PLAYER SCREEN
+// ============================================================
+
+export type EditPlayersScreenData = {
+	players: EditablePlayer[];
+	characters: EditableCharacterAssignment[];
+	characterNames: Array<{
+		id: number;
+		name: string;
+	}>;
 };
 
 // ============================================================
@@ -205,6 +241,7 @@ export type SavePlayerScreenInput = {
 	characterUpdates: PlayerCharacterSave[];
 };
 
+
 // ============================================================
 // GOODS SCREEN
 // ============================================================
@@ -223,6 +260,7 @@ export type GoodsScreenData = {
 	chestState: ChestState;
 };
 
+
 // ============================================================
 // ADVENTURE DECK SCREEN
 // ============================================================
@@ -230,6 +268,7 @@ export type GoodsScreenData = {
 export type AdventureDeckScreenData = {
 	cards: AdventureCard[];
 };
+
 
 // ============================================================
 // EVENT DECK SCREEN
@@ -239,22 +278,25 @@ export type EventDeckScreenData = {
 	eventCards: EventCard[];
 	eventDeck: EventDeck[];
 };
+
+// ============================================================
+// TASK DECK SCREEN
+// ============================================================
+
+export type TaskDeckScreenData = {
+	cards: TaskCard[];
+};
+
 // ============================================================
 // CAPTAIN SCREEN
 // ============================================================
 
-/**
- * Усі дані, необхідні CaptainScreen.
- */
 export type CaptainScreenData = {
 	character: CharacterWithName;
 	abilityCards: AbilityCard[];
 	experienceCards: ExperienceCard[];
 };
 
-/**
- * Дані для збереження Капітана Софі Одеси.
- */
 export type SaveCaptainScreenInput = {
 	gameId: number;
 	characterId: number;
@@ -276,28 +318,287 @@ export type SaveCaptainScreenInput = {
 };
 
 // ============================================================
+// LOAD GAME SCREEN
+// ============================================================
+
+export type LoadGameScreenData = {
+	games: SavedGame[];
+};
+
+// ============================================================
+// ABILITY CARD UNIQUENESS
+// ============================================================
+
+type AbilityCardOwnerType =
+	| 'гравець'
+	| 'персонаж';
+
+type AbilityCardUsage = {
+	ownerType: AbilityCardOwnerType;
+	ownerName: string;
+};
+
+type AbilityCardSlots = {
+	abilityCardId1: number | null;
+	abilityCardId2: number | null;
+	abilityCardId3: number | null;
+};
+
+type CharacterAbilityCardSlots = {
+	abilityCardId1: number | null;
+	abilityCardId2: number | null;
+};
+
+type AbilityCardValidationInput = {
+	players?: Array<{
+		id: number;
+		name: string;
+		abilityCardId1: number | null;
+		abilityCardId2: number | null;
+		abilityCardId3: number | null;
+	}>;
+
+	playerUpdates?: Map<
+		number,
+		AbilityCardSlots
+	>;
+
+	characterUpdates?: Map<
+		number,
+		CharacterAbilityCardSlots
+	>;
+};
+
+// ============================================================
+// SHIP SCREEN
+// ============================================================
+export type ShipScreenData = {
+	ship: Ship;
+};
+
+export type SaveShipScreenInput = {
+	gameId: number;
+	hull: number;
+	deck: number;
+	hospital: number;
+	caboose: number;
+	cabin: number;
+	bridge: number;
+	lastAction: number;
+	page: number;
+	location: string;
+	meat: number;
+	vegetables: number;
+	grain: number;
+	materials: number;
+	artifacts: number;
+	coins: number;
+};
+
+/**
+ * Перевіряє глобальну унікальність усіх Ability Cards
+ * у межах конкретної гри.
+ *
+ * Важливо:
+ * - карта не може бути двічі у одного гравця;
+ * - карта не може бути у двох різних гравців;
+ * - карта не може бути у двох персонажів;
+ * - карта не може бути одночасно у гравця і персонажа;
+ * - Captain Sophie також бере участь у загальній перевірці.
+ *
+ * Перевірка виконується ДО transaction з UPDATE.
+ * Це дозволяє показувати нормальну бізнес-помилку,
+ * а не SQLite CHECK constraint / finalizeAsync.
+ */
+async function validateAbilityCardUniqueness(
+	gameId: number,
+	input: AbilityCardValidationInput = {}
+): Promise<void> {
+	const [
+		databasePlayers,
+		databaseCharacters,
+		abilityCards,
+	] = await Promise.all([
+		getPlayers(gameId),
+		getCharactersWithNames(gameId),
+		getAbilityCards(),
+	]);
+
+	const abilityCardNamesById = new Map(
+		abilityCards.map((card) => [
+			card.id,
+			card.name,
+		])
+	);
+
+	const availableAbilityCardIds = new Set(
+		abilityCards.map((card) => card.id)
+	);
+
+	const usedCards = new Map<
+		number,
+		AbilityCardUsage
+	>();
+
+	const registerCard = (
+		cardId: number | null,
+		ownerType: AbilityCardOwnerType,
+		ownerName: string
+	) => {
+		if (cardId === null) {
+			return;
+		}
+
+		if (
+			!Number.isInteger(cardId) ||
+			cardId <= 0
+		) {
+			throw new Error(
+				'Некоректний ID карти здібностей.'
+			);
+		}
+
+		if (!availableAbilityCardIds.has(cardId)) {
+			throw new Error(
+				`Карту здібностей з ID ${cardId} не знайдено.`
+			);
+		}
+
+		const existing = usedCards.get(cardId);
+
+		if (existing) {
+			const cardName =
+				abilityCardNamesById.get(cardId) ??
+				`ID ${cardId}`;
+
+			const ownerLabel =
+				existing.ownerType === 'гравець'
+					? 'гравцем'
+					: 'персонажем';
+
+			throw new Error(
+				`Карта здібностей «${cardName}» вже використовується ${ownerLabel} «${existing.ownerName}».`
+			);
+		}
+
+		usedCards.set(cardId, {
+			ownerType,
+			ownerName,
+		});
+	};
+
+	// ------------------------------------------------------------
+	// PLAYERS
+	// ------------------------------------------------------------
+
+	if (input.players) {
+		for (const player of input.players) {
+			registerCard(
+				player.abilityCardId1,
+				'гравець',
+				player.name
+			);
+
+			registerCard(
+				player.abilityCardId2,
+				'гравець',
+				player.name
+			);
+
+			registerCard(
+				player.abilityCardId3,
+				'гравець',
+				player.name
+			);
+		}
+	} else {
+		for (const player of databasePlayers) {
+			const update =
+				input.playerUpdates?.get(player.id);
+
+			const card1 =
+				update !== undefined
+					? update.abilityCardId1
+					: player.ability_card_id_1;
+
+			const card2 =
+				update !== undefined
+					? update.abilityCardId2
+					: player.ability_card_id_2;
+
+			const card3 =
+				update !== undefined
+					? update.abilityCardId3
+					: player.ability_card_id_3;
+
+			registerCard(
+				card1,
+				'гравець',
+				player.name
+			);
+
+			registerCard(
+				card2,
+				'гравець',
+				player.name
+			);
+
+			registerCard(
+				card3,
+				'гравець',
+				player.name
+			);
+		}
+	}
+
+	// ------------------------------------------------------------
+	// CHARACTERS
+	// ------------------------------------------------------------
+
+	for (const character of databaseCharacters) {
+		const update =
+			input.characterUpdates?.get(
+				character.id
+			);
+
+		const card1 =
+			update !== undefined
+				? update.abilityCardId1
+				: character.ability_card_id_1;
+
+		const card2 =
+			update !== undefined
+				? update.abilityCardId2
+				: character.ability_card_id_2;
+
+		const characterName = character.name;
+
+		registerCard(
+			card1,
+			'персонаж',
+			characterName
+		);
+
+		registerCard(
+			card2,
+			'персонаж',
+			characterName
+		);
+	}
+}
+
+
+// ============================================================
 // CREATE GAME
 // ============================================================
 
-/**
- * Створює повністю готову нову гру.
- *
- * Atomic:
- * - games
- * - players
- * - characters
- * - ship
- * - current player
- *
- * Якщо будь-яка операція завершується помилкою —
- * вся транзакція відкочується.
- */
 export async function createGame(
 	input: CreateGameInput
 ): Promise<number> {
 	validateGameName(input.gameName);
 
-	const gameName = input.gameName.trim();
+	const gameName =
+		input.gameName.trim();
 
 	validatePlayerCount(
 		input.playerCount
@@ -351,7 +652,6 @@ export async function createGame(
 				playerId:
 					player.id ??
 					-(index + 1),
-
 				characterIds:
 					player.selectedCharacterIds,
 			})
@@ -377,9 +677,9 @@ export async function createGame(
 
 	await db.withTransactionAsync(
 		async () => {
-			// ------------------------------------------------------
+			// --------------------------------------------------------
 			// GAME
-			// ------------------------------------------------------
+			// --------------------------------------------------------
 
 			createdGameId =
 				await createGameRepository(
@@ -392,9 +692,9 @@ export async function createGame(
 			let firstPlayerId:
 				number | null = null;
 
-			// ------------------------------------------------------
+			// --------------------------------------------------------
 			// PLAYERS + CHARACTERS
-			// ------------------------------------------------------
+			// --------------------------------------------------------
 
 			for (
 				const player of input.players
@@ -433,9 +733,9 @@ export async function createGame(
 				);
 			}
 
-			// ------------------------------------------------------
+			// --------------------------------------------------------
 			// SOPHIE
-			// ------------------------------------------------------
+			// --------------------------------------------------------
 
 			await createCharacter(
 				createdGameId,
@@ -443,21 +743,21 @@ export async function createGame(
 				null
 			);
 
-			// ------------------------------------------------------
+			// --------------------------------------------------------
 			// SHIP
-			// ------------------------------------------------------
+			// --------------------------------------------------------
 
 			await db.runAsync(
 				`
-        INSERT INTO ships (game_id)
-        VALUES (?);
+          INSERT INTO ships (game_id)
+          VALUES (?);
         `,
 				createdGameId
 			);
 
-			// ------------------------------------------------------
+			// --------------------------------------------------------
 			// CURRENT PLAYER
-			// ------------------------------------------------------
+			// --------------------------------------------------------
 
 			await updateGame(
 				createdGameId,
@@ -480,26 +780,11 @@ export async function createGame(
 	return createdGameId;
 }
 
+
 // ============================================================
 // CHANGE PLAYERS
 // ============================================================
 
-/**
- * Змінює склад гравців існуючої гри.
- *
- * Персонажі не створюються заново.
- * Їхній стан, damage, cards тощо зберігаються.
- *
- * Змінюється тільки player_id.
- *
- * Тимчасові ID:
- * -1
- * -2
- * -3
- * ...
- *
- * замінюються на реальні ID після створення.
- */
 export async function changePlayers(
 	input: ChangePlayersInput
 ): Promise<void> {
@@ -509,24 +794,24 @@ export async function changePlayers(
 		characters,
 	} = input;
 
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 	// GAME
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 
 	const game =
 		await requireGame(gameId);
 
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 	// PLAYER COUNT
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 
 	validatePlayerCount(
 		players.length
 	);
 
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 	// PLAYERS
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 
 	validatePlayers(
 		players.map(
@@ -556,6 +841,39 @@ export async function changePlayers(
 		inputPlayerIds.add(
 			player.id
 		);
+
+		if (
+			!Number.isInteger(
+				player.team_tokens
+			) ||
+			player.team_tokens < 0
+		) {
+			throw new Error(
+				`Некоректна кількість жетонів у гравця «${player.name}».`
+			);
+		}
+
+		const playerCardIds = [
+			player.ability_card_id_1,
+			player.ability_card_id_2,
+			player.ability_card_id_3,
+		];
+
+		for (
+			const cardId of playerCardIds
+		) {
+			if (
+				cardId !== null &&
+				(
+					!Number.isInteger(cardId) ||
+					cardId <= 0
+				)
+			) {
+				throw new Error(
+					`Некоректний ID карти здібностей у гравця «${player.name}».`
+				);
+			}
+		}
 	}
 
 	const existingPlayers =
@@ -585,9 +903,9 @@ export async function changePlayers(
 		}
 	}
 
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 	// CHARACTERS
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 
 	const existingCharacters =
 		await getCharacters(gameId);
@@ -596,10 +914,8 @@ export async function changePlayers(
 		existingCharacters.map(
 			(character) => ({
 				id: character.id,
-
 				character_name_id:
 					character.character_name_id,
-
 				player_id:
 					character.player_id,
 			})
@@ -703,9 +1019,9 @@ export async function changePlayers(
 		}
 	}
 
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 	// SOPHIE
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 
 	const sophie =
 		characters.find(
@@ -728,15 +1044,16 @@ export async function changePlayers(
 		);
 	}
 
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 	// PLAYER ASSIGNMENTS
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 
 	const playerAssignments:
 		PlayerCharacterDistribution[] =
 		players.map(
 			(player) => ({
-				playerId: player.id,
+				playerId:
+					player.id,
 
 				characterIds:
 					characters
@@ -764,9 +1081,9 @@ export async function changePlayers(
 		playerAssignments
 	);
 
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 	// FINAL PLAYER IDS
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 
 	for (
 		const character of characters
@@ -797,18 +1114,44 @@ export async function changePlayers(
 		}
 	}
 
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
+	// ABILITY CARDS
+	//
+	// Перевіряємо фінальний набір карт усіх гравців.
+	// Тут тимчасові ID не мають значення — нам потрібні
+	// тільки самі карти та їхні власники.
+	// ------------------------------------------------------------
+
+	await validateAbilityCardUniqueness(
+		gameId,
+		{
+			players: players.map(
+				(player) => ({
+					id: player.id,
+					name: player.name,
+					abilityCardId1:
+						player.ability_card_id_1,
+					abilityCardId2:
+						player.ability_card_id_2,
+					abilityCardId3:
+						player.ability_card_id_3,
+				})
+			),
+		}
+	);
+
+	// ------------------------------------------------------------
 	// ATOMIC TRANSACTION
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 
 	await db.withTransactionAsync(
 		async () => {
 			const playerIdMap =
 				new Map<number, number>();
 
-			// ------------------------------------------------------
+			// --------------------------------------------------------
 			// CREATE / UPDATE PLAYERS
-			// ------------------------------------------------------
+			// --------------------------------------------------------
 
 			for (
 				const player of players
@@ -882,9 +1225,9 @@ export async function changePlayers(
 				);
 			}
 
-			// ------------------------------------------------------
+			// --------------------------------------------------------
 			// REASSIGN CHARACTERS
-			// ------------------------------------------------------
+			// --------------------------------------------------------
 
 			for (
 				const assignment of characters
@@ -927,9 +1270,9 @@ export async function changePlayers(
 				);
 			}
 
-			// ------------------------------------------------------
+			// --------------------------------------------------------
 			// FINAL PLAYER IDS
-			// ------------------------------------------------------
+			// --------------------------------------------------------
 
 			const finalPlayerIds =
 				players.map(
@@ -959,9 +1302,9 @@ export async function changePlayers(
 				);
 			}
 
-			// ------------------------------------------------------
+			// --------------------------------------------------------
 			// CURRENT PLAYER
-			// ------------------------------------------------------
+			// --------------------------------------------------------
 
 			const currentPlayerStillExists =
 				game.current_player_id !== null &&
@@ -974,9 +1317,9 @@ export async function changePlayers(
 					? game.current_player_id!
 					: finalPlayerIds[0];
 
-			// ------------------------------------------------------
+			// --------------------------------------------------------
 			// GAME FIRST
-			// ------------------------------------------------------
+			// --------------------------------------------------------
 
 			await updateGame(
 				gameId,
@@ -989,9 +1332,9 @@ export async function changePlayers(
 				}
 			);
 
-			// ------------------------------------------------------
+			// --------------------------------------------------------
 			// DELETE OLD PLAYERS
-			// ------------------------------------------------------
+			// --------------------------------------------------------
 
 			const finalIds =
 				new Set(
@@ -1007,14 +1350,9 @@ export async function changePlayers(
 						existingPlayer.id
 					)
 				) {
-					await db.runAsync(
-						`
-            DELETE FROM players
-            WHERE id = ?
-              AND game_id = ?;
-            `,
-						existingPlayer.id,
-						gameId
+					await deletePlayer(
+						gameId,
+						existingPlayer.id
 					);
 				}
 			}
@@ -1022,27 +1360,26 @@ export async function changePlayers(
 	);
 }
 
+
 // ============================================================
 // GET CAPTAIN SCREEN
 // ============================================================
 
-/**
- * Завантажує всі дані, необхідні CaptainScreen.
- *
- * CaptainScreen не працює з SQLite напряму.
- */
 export async function getCaptainScreen(
 	gameId: number
 ): Promise<CaptainScreenData> {
-	// ---------------------------------------------------------
-	// GAME
-	// ---------------------------------------------------------
+	if (
+		!Number.isInteger(gameId) ||
+		gameId <= 0
+	) {
+		throw new Error(
+			'Некоректний ID гри.'
+		);
+	}
 
-	await requireGame(gameId);
-
-	// ---------------------------------------------------------
-	// SOPHIE
-	// ---------------------------------------------------------
+	await requireGame(
+		gameId
+	);
 
 	const captain =
 		await getSophie(gameId);
@@ -1062,7 +1399,6 @@ export async function getCaptainScreen(
 		);
 	}
 
-	// Sophie не повинна мати player_id.
 	if (
 		captain.player_id !== null
 	) {
@@ -1070,10 +1406,6 @@ export async function getCaptainScreen(
 			'Капітан Софі Одеса не повинна бути призначена гравцю.'
 		);
 	}
-
-	// ---------------------------------------------------------
-	// CARDS
-	// ---------------------------------------------------------
 
 	const [
 		abilityCards,
@@ -1093,19 +1425,11 @@ export async function getCaptainScreen(
 	};
 }
 
+
 // ============================================================
 // SAVE CAPTAIN SCREEN
 // ============================================================
 
-/**
- * Повністю зберігає CaptainScreen.
- *
- * Усі зміни characters виконуються
- * в одній SQLite transaction.
- *
- * Якщо будь-яка операція падає —
- * вся транзакція відкочується.
- */
 export async function saveCaptainScreen(
 	input: SaveCaptainScreenInput
 ): Promise<void> {
@@ -1129,9 +1453,9 @@ export async function saveCaptainScreen(
 		experienceCardId3,
 	} = input;
 
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 	// BASIC VALIDATION
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 
 	if (
 		!Number.isInteger(gameId) ||
@@ -1151,9 +1475,9 @@ export async function saveCaptainScreen(
 		);
 	}
 
-	// ---------------------------------------------------------
-	// CHARACTER STATE VALIDATION
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
+	// CHARACTER STATE
+	// ------------------------------------------------------------
 
 	if (
 		!Number.isInteger(damage) ||
@@ -1196,9 +1520,9 @@ export async function saveCaptainScreen(
 		}
 	}
 
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 	// CARD ID VALIDATION
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 
 	const cardIds = [
 		abilityCardId1,
@@ -1225,69 +1549,87 @@ export async function saveCaptainScreen(
 		}
 	}
 
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
+	// GAME + CAPTAIN VALIDATION
+	//
+	// Робимо ДО transaction, щоб помилки бізнес-логіки
+	// не перетворювалися на finalizeAsync / rollback шум.
+	// ------------------------------------------------------------
+
+	await requireGame(
+		gameId
+	);
+
+	const captain =
+		await getSophie(gameId);
+
+	if (!captain) {
+		throw new Error(
+			'Капітана не знайдено.'
+		);
+	}
+
+	if (
+		captain.id !==
+		characterId
+	) {
+		throw new Error(
+			'Вказаний персонаж не є Капітаном цієї гри.'
+		);
+	}
+
+	if (
+		captain.character_name_id !==
+		SOPHIE_CHARACTER_ID
+	) {
+		throw new Error(
+			'CaptainScreen може редагувати тільки Капітана Софі Одесу.'
+		);
+	}
+
+	if (
+		captain.player_id !== null
+	) {
+		throw new Error(
+			'Капітан Софі Одеса не повинна бути призначена гравцю.'
+		);
+	}
+
+	// ------------------------------------------------------------
+	// ABILITY CARD UNIQUENESS
+	//
+	// Важливо: перевіряємо фінальний стан Софі разом
+	// з усіма іншими персонажами та гравцями.
+	// ------------------------------------------------------------
+
+	const characterUpdatesById =
+		new Map<
+			number,
+			CharacterAbilityCardSlots
+		>();
+
+	characterUpdatesById.set(
+		characterId,
+		{
+			abilityCardId1,
+			abilityCardId2,
+		}
+	);
+
+	await validateAbilityCardUniqueness(
+		gameId,
+		{
+			characterUpdates:
+				characterUpdatesById,
+		}
+	);
+
+	// ------------------------------------------------------------
 	// TRANSACTION
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 
 	await db.withTransactionAsync(
 		async () => {
-			// ------------------------------------------------------
-			// 1. GAME
-			// ------------------------------------------------------
-
-			await requireGame(gameId);
-
-			// ------------------------------------------------------
-			// 2. CAPTAIN
-			// ------------------------------------------------------
-
-			const captain =
-				await getSophie(gameId);
-
-			if (!captain) {
-				throw new Error(
-					'Капітана не знайдено.'
-				);
-			}
-
-			// ------------------------------------------------------
-			// 3. CHARACTER ID
-			// ------------------------------------------------------
-
-			if (
-				captain.id !==
-				characterId
-			) {
-				throw new Error(
-					'Вказаний персонаж не є Капітаном цієї гри.'
-				);
-			}
-
-			// ------------------------------------------------------
-			// 4. SOPHIE VALIDATION
-			// ------------------------------------------------------
-
-			if (
-				captain.character_name_id !==
-				SOPHIE_CHARACTER_ID
-			) {
-				throw new Error(
-					'CaptainScreen може редагувати тільки Капітана Софі Одесу.'
-				);
-			}
-
-			if (
-				captain.player_id !== null
-			) {
-				throw new Error(
-					'Капітан Софі Одеса не повинна бути призначена гравцю.'
-				);
-			}
-
-			// ------------------------------------------------------
-			// 5. UPDATE SOPHIE
-			// ------------------------------------------------------
-
 			await updateCharacter(
 				gameId,
 				characterId,
@@ -1312,22 +1654,11 @@ export async function saveCaptainScreen(
 	);
 }
 
+
 // ============================================================
 // SAVE PLAYER SCREEN
 // ============================================================
 
-/**
- * Повністю зберігає PlayerScreen.
- *
- * В одній транзакції змінюються:
- *
- * 1. players
- * 2. characters
- * 3. games.current_player_id
- *
- * Якщо будь-яка операція падає —
- * SQLite відкочує ВСІ зміни.
- */
 export async function savePlayerScreen(
 	input: SavePlayerScreenInput
 ): Promise<number | null> {
@@ -1346,9 +1677,9 @@ export async function savePlayerScreen(
 		characterUpdates,
 	} = input;
 
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 	// BASIC INPUT VALIDATION
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 
 	if (
 		!Number.isInteger(gameId) ||
@@ -1377,9 +1708,35 @@ export async function savePlayerScreen(
 		);
 	}
 
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
+	// PLAYER ABILITY CARDS
+	// ------------------------------------------------------------
+
+	const playerCardIds = [
+		abilityCardId1,
+		abilityCardId2,
+		abilityCardId3,
+	];
+
+	for (
+		const cardId of playerCardIds
+	) {
+		if (
+			cardId !== null &&
+			(
+				!Number.isInteger(cardId) ||
+				cardId <= 0
+			)
+		) {
+			throw new Error(
+				'Некоректний ID карти здібностей гравця.'
+			);
+		}
+	}
+
+	// ------------------------------------------------------------
 	// CHARACTER INPUT VALIDATION
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 
 	const characterIds =
 		new Set<number>();
@@ -1412,6 +1769,10 @@ export async function savePlayerScreen(
 		characterIds.add(
 			character.characterId
 		);
+
+		// ----------------------------------------------------------
+		// CHARACTER STATE
+		// ----------------------------------------------------------
 
 		if (
 			!Number.isInteger(
@@ -1458,6 +1819,10 @@ export async function savePlayerScreen(
 			}
 		}
 
+		// ----------------------------------------------------------
+		// CARDS
+		// ----------------------------------------------------------
+
 		const cardIds = [
 			character.abilityCardId1,
 			character.abilityCardId2,
@@ -1484,91 +1849,155 @@ export async function savePlayerScreen(
 		}
 	}
 
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
+	// GAME
+	// ------------------------------------------------------------
+
+	const game =
+		await requireGame(
+			gameId
+		);
+
+	// ------------------------------------------------------------
+	// PLAYER
+	// ------------------------------------------------------------
+
+	await requirePlayer(
+		gameId,
+		playerId
+	);
+
+	// ------------------------------------------------------------
+	// PLAYER CHARACTERS
+	// ------------------------------------------------------------
+
+	const playerCharacters =
+		await getCharactersForPlayer(
+			gameId,
+			playerId
+		);
+
+	const databaseCharacterIds =
+		new Set(
+			playerCharacters.map(
+				(character) => character.id
+			)
+		);
+
+	if (
+		characterUpdates.length !==
+		playerCharacters.length
+	) {
+		throw new Error(
+			'Кількість персонажів для збереження не відповідає даним гри.'
+		);
+	}
+
+	for (
+		const character of
+		characterUpdates
+	) {
+		if (
+			!databaseCharacterIds.has(
+				character.characterId
+			)
+		) {
+			throw new Error(
+				`Персонаж ${character.characterId} не належить гравцю ${playerId} у грі ${gameId}.`
+			);
+		}
+	}
+
+	// ------------------------------------------------------------
+	// ABILITY CARD UNIQUENESS
+	//
+	// ВАЖЛИВО:
+	// Будуємо фінальний стан усіх карт ДО UPDATE.
+	//
+	// Тому:
+	// A -> B
+	// B -> A
+	//
+	// може бути дозволено, якщо обидві зміни приходять
+	// в characterUpdates одночасно.
+	// ------------------------------------------------------------
+
+	const playerUpdatesById =
+		new Map<
+			number,
+			AbilityCardSlots
+		>();
+
+	playerUpdatesById.set(
+		playerId,
+		{
+			abilityCardId1,
+			abilityCardId2,
+			abilityCardId3,
+		}
+	);
+
+	const characterUpdatesById =
+		new Map<
+			number,
+			CharacterAbilityCardSlots
+		>();
+
+	for (
+		const character of
+		characterUpdates
+	) {
+		characterUpdatesById.set(
+			character.characterId,
+			{
+				abilityCardId1:
+					character.abilityCardId1,
+
+				abilityCardId2:
+					character.abilityCardId2,
+			}
+		);
+	}
+
+	await validateAbilityCardUniqueness(
+		gameId,
+		{
+			playerUpdates:
+				playerUpdatesById,
+
+			characterUpdates:
+				characterUpdatesById,
+		}
+	);
+
+	// ------------------------------------------------------------
 	// TRANSACTION
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 
 	let savedCurrentPlayerId:
 		number | null = null;
 
 	await db.withTransactionAsync(
 		async () => {
-			// ------------------------------------------------------
-			// 1. GAME
-			// ------------------------------------------------------
-
-			const game =
-				await requireGame(gameId);
-
-			// ------------------------------------------------------
-			// 2. PLAYER
-			// ------------------------------------------------------
-
-			await requirePlayer(
-				gameId,
-				playerId
-			);
-
-			// ------------------------------------------------------
-			// 3. CHARACTERS OF PLAYER
-			// ------------------------------------------------------
-
-			const playerCharacters =
-				await getCharactersForPlayer(
-					gameId,
-					playerId
-				);
-
-			const databaseCharacterIds =
-				new Set(
-					playerCharacters.map(
-						(character) =>
-							character.id
-					)
-				);
-
-			if (
-				characterUpdates.length !==
-				playerCharacters.length
-			) {
-				throw new Error(
-					'Кількість персонажів для збереження не відповідає даним гри.'
-				);
-			}
-
-			for (
-				const character of
-				characterUpdates
-			) {
-				if (
-					!databaseCharacterIds.has(
-						character.characterId
-					)
-				) {
-					throw new Error(
-						`Персонаж ${character.characterId} не належить гравцю ${playerId} у грі ${gameId}.`
-					);
-				}
-			}
-
-			// ------------------------------------------------------
-			// 4. PLAYER
-			// ------------------------------------------------------
+			// --------------------------------------------------------
+			// PLAYER
+			// --------------------------------------------------------
 
 			await updatePlayer(
 				gameId,
 				playerId,
 				{
 					teamTokens,
+
 					abilityCardId1,
 					abilityCardId2,
 					abilityCardId3,
 				}
 			);
 
-			// ------------------------------------------------------
-			// 5. CHARACTERS
-			// ------------------------------------------------------
+			// --------------------------------------------------------
+			// CHARACTERS
+			// --------------------------------------------------------
 
 			for (
 				const character of
@@ -1617,9 +2046,9 @@ export async function savePlayerScreen(
 				);
 			}
 
-			// ------------------------------------------------------
-			// 6. CURRENT PLAYER / CAPTAIN
-			// ------------------------------------------------------
+			// --------------------------------------------------------
+			// CURRENT PLAYER / CAPTAIN
+			// --------------------------------------------------------
 
 			let nextCurrentPlayerId =
 				game.current_player_id;
@@ -1635,9 +2064,9 @@ export async function savePlayerScreen(
 					null;
 			}
 
-			// ------------------------------------------------------
-			// 7. UPDATE GAME
-			// ------------------------------------------------------
+			// --------------------------------------------------------
+			// UPDATE GAME
+			// --------------------------------------------------------
 
 			if (
 				nextCurrentPlayerId !==
@@ -1660,17 +2089,33 @@ export async function savePlayerScreen(
 	return savedCurrentPlayerId;
 }
 
+
 // ============================================================
 // CURRENT PLAYER
 // ============================================================
 
-/**
- * Змінює тільки поточного гравця.
- */
 export async function setCurrentPlayer(
 	gameId: number,
 	playerId: number
 ): Promise<void> {
+	if (
+		!Number.isInteger(gameId) ||
+		gameId <= 0
+	) {
+		throw new Error(
+			'Некоректний ID гри.'
+		);
+	}
+
+	if (
+		!Number.isInteger(playerId) ||
+		playerId <= 0
+	) {
+		throw new Error(
+			'Некоректний ID гравця.'
+		);
+	}
+
 	await requireGame(
 		gameId
 	);
@@ -1689,13 +2134,11 @@ export async function setCurrentPlayer(
 	);
 }
 
+
 // ============================================================
 // GAME PROGRESS
 // ============================================================
 
-/**
- * Оновлює прогрес гри.
- */
 export async function updateGameProgress(
 	gameId: number,
 	input: {
@@ -1704,13 +2147,27 @@ export async function updateGameProgress(
 		win?: 0 | 1;
 	}
 ): Promise<void> {
+	if (
+		!Number.isInteger(gameId) ||
+		gameId <= 0
+	) {
+		throw new Error(
+			'Некоректний ID гри.'
+		);
+	}
+
 	await requireGame(
 		gameId
 	);
 
 	if (
 		input.experience !== undefined &&
-		input.experience < 0
+		(
+			!Number.isInteger(
+				input.experience
+			) ||
+			input.experience < 0
+		)
 	) {
 		throw new Error(
 			'Experience не може бути від’ємним.'
@@ -1719,10 +2176,25 @@ export async function updateGameProgress(
 
 	if (
 		input.numberOfLosses !== undefined &&
-		input.numberOfLosses < 0
+		(
+			!Number.isInteger(
+				input.numberOfLosses
+			) ||
+			input.numberOfLosses < 0
+		)
 	) {
 		throw new Error(
 			'Кількість поразок не може бути від’ємною.'
+		);
+	}
+
+	if (
+		input.win !== undefined &&
+		input.win !== 0 &&
+		input.win !== 1
+	) {
+		throw new Error(
+			'Некоректне значення результату гри.'
 		);
 	}
 
@@ -1759,95 +2231,108 @@ export async function updateGameProgress(
 	);
 }
 
+
 // ============================================================
 // DELETE GAME
 // ============================================================
 
-/**
- * Повністю видаляє гру.
- *
- * Repository вже враховує FK
- * games.current_player_id.
- */
-export const deleteGame = async (
-	gameId: number
-): Promise<void> => {
-	if (!Number.isInteger(gameId) || gameId <= 0) {
-		throw new Error('Некоректний ID гри.');
-	}
+export const deleteGame =
+	async (
+		gameId: number
+	): Promise<void> => {
+		if (
+			!Number.isInteger(gameId) ||
+			gameId <= 0
+		) {
+			throw new Error(
+				'Некоректний ID гри.'
+			);
+		}
 
-	await db.withTransactionAsync(async () => {
-		await requireGame(gameId);
-		await deleteGameRepository(gameId);
-	});
-};
+		await db.withTransactionAsync(
+			async () => {
+				await requireGame(
+					gameId
+				);
+
+				await deleteGameRepository(
+					gameId
+				);
+			}
+		);
+	};
+
 
 // ============================================================
 // GET GAME SCREEN
 // ============================================================
 
-/**
- * Завантажує всі дані, необхідні GameScreen.
- *
- * GameScreen не працює з SQLite напряму.
- */
 export async function getGameScreen(
 	gameId: number
 ): Promise<GameScreenData> {
-	// ---------------------------------------------------------
-	// GAME
-	// ---------------------------------------------------------
+	if (
+		!Number.isInteger(gameId) ||
+		gameId <= 0
+	) {
+		throw new Error(
+			'Некоректний ID гри.'
+		);
+	}
 
 	const game =
-		await requireGame(gameId);
-
-	// ---------------------------------------------------------
-	// PLAYERS
-	// ---------------------------------------------------------
+		await requireGame(
+			gameId
+		);
 
 	const players =
-		await getPlayers(gameId);
+		await getPlayers(
+			gameId
+		);
 
 	return {
 		game: {
 			id: game.id,
-			game_name: game.game_name,
-			game_date: game.game_date,
+
+			game_name:
+				game.game_name,
+
+			game_date:
+				game.game_date,
+
 			number_of_players:
 				game.number_of_players,
+
 			difficulty_level:
 				game.difficulty_level,
+
 			number_of_losses:
 				game.number_of_losses,
+
 			experience:
 				game.experience,
-			win: game.win,
+
+			win:
+				game.win,
 		},
 
-		players: players.map(
-			(player) => ({
-				id: player.id,
-				name: player.name,
-			})
-		),
+		players:
+			players.map(
+				(player) => ({
+					id:
+						player.id,
+
+					name:
+						player.name,
+				})
+			),
 	};
 }
+
 
 // ============================================================
 // SAVE GAME SCREEN
 // ============================================================
 
-/**
- * Зберігає дані GameScreen.
- *
- * Оновлює:
- * - experience
- * - number_of_losses
- * - win
- *
- * Усі перевірки та UPDATE виконуються
- * всередині однієї SQLite transaction.
- */
 export async function saveGameScreen(
 	input: SaveGameScreenInput
 ): Promise<void> {
@@ -1858,9 +2343,9 @@ export async function saveGameScreen(
 		win,
 	} = input;
 
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 	// BASIC VALIDATION
-	// ---------------------------------------------------------
+	// ------------------------------------------------------------
 
 	if (
 		!Number.isInteger(gameId) ||
@@ -1898,22 +2383,20 @@ export async function saveGameScreen(
 		);
 	}
 
-	// ---------------------------------------------------------
-	// TRANSACTION
-	// ---------------------------------------------------------
-
 	await db.withTransactionAsync(
 		async () => {
-			// Перевіряємо, що гра існує,
-			// всередині тієї ж transaction.
-			await requireGame(gameId);
+			await requireGame(
+				gameId
+			);
 
 			await updateGame(
 				gameId,
 				{
 					experience,
+
 					number_of_losses:
 						numberOfLosses,
+
 					win,
 				}
 			);
@@ -1926,258 +2409,935 @@ export async function saveGameScreen(
 // GOODS SCREEN
 // ============================================================
 
-export const getGoodsScreen = async (
-	gameId: number
-): Promise<GoodsScreenData> => {
-	if (!Number.isInteger(gameId) || gameId <= 0) {
-		throw new Error('Некоректний ID гри.');
-	}
-
-	let result: GoodsScreenData = {
-		goods: [],
-		chestState: {},
-	};
-
-	await db.withTransactionAsync(async () => {
-		// ---------------------------------------------------------
-		// GAME
-		// ---------------------------------------------------------
-
-		await requireGame(gameId);
-
-		// ---------------------------------------------------------
-		// GOODS
-		// ---------------------------------------------------------
-
-		const goods = await getGoods();
-
-		// ---------------------------------------------------------
-		// CHEST GOODS
-		// ---------------------------------------------------------
-
-		const chestGoods = await getChestGoods(gameId);
-
-		const chestState: ChestState = {};
-
-		for (const item of chestGoods) {
-			chestState[item.goods_id] = {
-				added: true,
-				activated: item.activated === 1,
-			};
-		}
-
-		// ---------------------------------------------------------
-		// STARTER GOODS
-		// ---------------------------------------------------------
-
-		const starterGoods = goods.filter(
-			(good) => good.type === 'Стартова'
-		);
-
-		let addedCount = 0;
-
-		for (const good of starterGoods) {
-			if (!chestState[good.id]) {
-				await addChestGood(gameId, good.id);
-
-				chestState[good.id] = {
-					added: true,
-					activated: false,
-				};
-
-				addedCount++;
-			}
-		}
-
-		if (addedCount > 0) {
-			console.log(
-				`✅ Додано ${addedCount} стартових товарів до скрині`
+export const getGoodsScreen =
+	async (
+		gameId: number
+	): Promise<GoodsScreenData> => {
+		if (
+			!Number.isInteger(gameId) ||
+			gameId <= 0
+		) {
+			throw new Error(
+				'Некоректний ID гри.'
 			);
 		}
 
-		result = {
-			goods,
-			chestState,
+		let result:
+			GoodsScreenData = {
+			goods: [],
+			chestState: {},
 		};
-	});
 
-	return result;
-};
+		await db.withTransactionAsync(
+			async () => {
+				await requireGame(
+					gameId
+				);
 
-/**
- * Додає товар до скрині.
- */
-export const addGoodToChest = async (
-	gameId: number,
-	goodsId: number
-): Promise<ChestStateItem> => {
-	if (!Number.isInteger(gameId) || gameId <= 0) {
-		throw new Error('Некоректний ID гри.');
-	}
+				const goods =
+					await getGoods();
 
-	if (!Number.isInteger(goodsId) || goodsId <= 0) {
-		throw new Error('Некоректний ID товару.');
-	}
+				const chestGoods =
+					await getChestGoods(
+						gameId
+					);
 
-	await db.withTransactionAsync(async () => {
-		await requireGame(gameId);
+				const chestState:
+					ChestState = {};
 
-		const good = await requireGood(goodsId);
+				for (
+					const item of chestGoods
+				) {
+					chestState[
+						item.goods_id
+					] = {
+						added: true,
+						activated:
+							item.activated === 1,
+					};
+				}
 
-		if (good.type === 'Стартова') {
-			throw new Error(
-				'Стартове майно завжди додане до скрині'
-			);
-		}
+				const starterGoods =
+					goods.filter(
+						(good) =>
+							good.type ===
+							'Стартова'
+					);
 
-		await addChestGood(gameId, goodsId);
-	});
+				let addedCount = 0;
 
-	return {
-		added: true,
-		activated: false,
+				for (
+					const good of
+					starterGoods
+				) {
+					if (
+						!chestState[good.id]
+					) {
+						await addChestGood(
+							gameId,
+							good.id
+						);
+
+						chestState[
+							good.id
+						] = {
+							added: true,
+							activated: false,
+						};
+
+						addedCount++;
+					}
+				}
+
+				if (
+					addedCount > 0
+				) {
+					console.log(
+						`✅ Додано ${addedCount} стартових товарів до скрині`
+					);
+				}
+
+				result = {
+					goods,
+					chestState,
+				};
+			}
+		);
+
+		return result;
 	};
-};
 
-/**
- * Видаляє товар зі скрині.
- */
-export const removeGoodFromChest = async (
-	gameId: number,
-	goodsId: number
-): Promise<void> => {
-	if (!Number.isInteger(gameId) || gameId <= 0) {
-		throw new Error('Некоректний ID гри.');
-	}
 
-	if (!Number.isInteger(goodsId) || goodsId <= 0) {
-		throw new Error('Некоректний ID товару.');
-	}
+// ============================================================
+// ADD GOOD TO CHEST
+// ============================================================
 
-	await db.withTransactionAsync(async () => {
-		await requireGame(gameId);
-
-		const good = await requireGood(goodsId);
-
-		if (good.type === 'Стартова') {
+export const addGoodToChest =
+	async (
+		gameId: number,
+		goodsId: number
+	): Promise<ChestStateItem> => {
+		if (
+			!Number.isInteger(gameId) ||
+			gameId <= 0
+		) {
 			throw new Error(
-				'Стартове майно завжди додане до скрині'
+				'Некоректний ID гри.'
 			);
 		}
 
-		await removeChestGood(gameId, goodsId);
-	});
-};
-
-/**
- * Змінює стан активації товару.
- */
-export const setGoodActivated = async (
-	gameId: number,
-	goodsId: number,
-	activated: boolean
-): Promise<boolean> => {
-	if (!Number.isInteger(gameId) || gameId <= 0) {
-		throw new Error('Некоректний ID гри.');
-	}
-
-	if (!Number.isInteger(goodsId) || goodsId <= 0) {
-		throw new Error('Некоректний ID товару.');
-	}
-
-	await db.withTransactionAsync(async () => {
-		await requireGame(gameId);
-
-		await requireGood(goodsId);
-
-		const chestGoods = await getChestGoods(gameId);
-
-		const chestGood = chestGoods.find(
-			(item) => item.goods_id === goodsId
-		);
-
-		if (!chestGood) {
+		if (
+			!Number.isInteger(goodsId) ||
+			goodsId <= 0
+		) {
 			throw new Error(
-				'Спочатку додайте товар до скрині'
+				'Некоректний ID товару.'
 			);
 		}
 
-		const newActivated: 0 | 1 = activated ? 1 : 0;
+		await db.withTransactionAsync(
+			async () => {
+				await requireGame(
+					gameId
+				);
 
-		await updateChestGoodActivated(
-			gameId,
-			goodsId,
-			newActivated
+				const good =
+					await requireGood(
+						goodsId
+					);
+
+				if (
+					good.type ===
+					'Стартова'
+				) {
+					throw new Error(
+						'Стартове майно завжди додане до скрині'
+					);
+				}
+
+				await addChestGood(
+					gameId,
+					goodsId
+				);
+			}
 		);
-	});
 
-	return activated;
-};
+		return {
+			added: true,
+			activated: false,
+		};
+	};
+
+
+// ============================================================
+// REMOVE GOOD FROM CHEST
+// ============================================================
+
+export const removeGoodFromChest =
+	async (
+		gameId: number,
+		goodsId: number
+	): Promise<void> => {
+		if (
+			!Number.isInteger(gameId) ||
+			gameId <= 0
+		) {
+			throw new Error(
+				'Некоректний ID гри.'
+			);
+		}
+
+		if (
+			!Number.isInteger(goodsId) ||
+			goodsId <= 0
+		) {
+			throw new Error(
+				'Некоректний ID товару.'
+			);
+		}
+
+		await db.withTransactionAsync(
+			async () => {
+				await requireGame(
+					gameId
+				);
+
+				const good =
+					await requireGood(
+						goodsId
+					);
+
+				if (
+					good.type ===
+					'Стартова'
+				) {
+					throw new Error(
+						'Стартове майно завжди додане до скрині'
+					);
+				}
+
+				await removeChestGood(
+					gameId,
+					goodsId
+				);
+			}
+		);
+	};
+
+
+// ============================================================
+// SET GOOD ACTIVATED
+// ============================================================
+
+export const setGoodActivated =
+	async (
+		gameId: number,
+		goodsId: number,
+		activated: boolean
+	): Promise<boolean> => {
+		if (
+			!Number.isInteger(gameId) ||
+			gameId <= 0
+		) {
+			throw new Error(
+				'Некоректний ID гри.'
+			);
+		}
+
+		if (
+			!Number.isInteger(goodsId) ||
+			goodsId <= 0
+		) {
+			throw new Error(
+				'Некоректний ID товару.'
+			);
+		}
+
+		await db.withTransactionAsync(
+			async () => {
+				await requireGame(
+					gameId
+				);
+
+				await requireGood(
+					goodsId
+				);
+
+				const chestGoods =
+					await getChestGoods(
+						gameId
+					);
+
+				const chestGood =
+					chestGoods.find(
+						(item) =>
+							item.goods_id ===
+							goodsId
+					);
+
+				if (!chestGood) {
+					throw new Error(
+						'Спочатку додайте товар до скрині'
+					);
+				}
+
+				const newActivated:
+					0 | 1 =
+					activated ? 1 : 0;
+
+				await updateChestGoodActivated(
+					gameId,
+					goodsId,
+					newActivated
+				);
+			}
+		);
+
+		return activated;
+	};
+
 
 // ============================================================
 // ADVENTURE DECK SCREEN
 // ============================================================
 
-/**
- * Завантажує всі карти пригод конкретної гри.
- */
-export const getAdventureDeckScreen = async (
+export const getAdventureDeckScreen =
+	async (
+		gameId: number
+	): Promise<AdventureDeckScreenData> => {
+		if (
+			!Number.isInteger(gameId) ||
+			gameId <= 0
+		) {
+			throw new Error(
+				'Некоректний ID гри.'
+			);
+		}
+
+		await requireGame(
+			gameId
+		);
+
+		const cards =
+			await getAdventureCards(
+				gameId
+			);
+
+		return {
+			cards,
+		};
+	};
+
+
+// ============================================================
+// ADD ADVENTURE CARD
+// ============================================================
+
+export const addAdventureCard =
+	async (
+		gameId: number,
+		cardNumber: number,
+		name: string,
+		type: string,
+		totem: boolean
+	): Promise<void> => {
+		if (
+			!Number.isInteger(gameId) ||
+			gameId <= 0
+		) {
+			throw new Error(
+				'Некоректний ID гри.'
+			);
+		}
+
+		if (
+			!Number.isInteger(
+				cardNumber
+			)
+		) {
+			throw new Error(
+				'Некоректний номер картки.'
+			);
+		}
+
+		const trimmedName =
+			name.trim();
+
+		if (!trimmedName) {
+			throw new Error(
+				'Введіть назву картки.'
+			);
+		}
+
+		await db.withTransactionAsync(
+			async () => {
+				await requireGame(
+					gameId
+				);
+
+				await addAdventureCardRepository(
+					gameId,
+					cardNumber,
+					trimmedName,
+					type,
+					totem ? 1 : 0
+				);
+			}
+		);
+	};
+
+
+// ============================================================
+// DELETE ADVENTURE CARD
+// ============================================================
+
+export const deleteAdventureCard =
+	async (
+		gameId: number,
+		cardId: number
+	): Promise<void> => {
+		if (
+			!Number.isInteger(gameId) ||
+			gameId <= 0
+		) {
+			throw new Error(
+				'Некоректний ID гри.'
+			);
+		}
+
+		if (
+			!Number.isInteger(cardId) ||
+			cardId <= 0
+		) {
+			throw new Error(
+				'Некоректний ID картки.'
+			);
+		}
+
+		await db.withTransactionAsync(
+			async () => {
+				await requireGame(
+					gameId
+				);
+
+				await deleteAdventureCardRepository(
+					cardId
+				);
+			}
+		);
+	};
+
+
+// ============================================================
+// SET ADVENTURE CARD ACTIVATED
+// ============================================================
+
+export const setAdventureCardActivated =
+	async (
+		gameId: number,
+		cardId: number,
+		activated: boolean
+	): Promise<boolean> => {
+		if (
+			!Number.isInteger(gameId) ||
+			gameId <= 0
+		) {
+			throw new Error(
+				'Некоректний ID гри.'
+			);
+		}
+
+		if (
+			!Number.isInteger(cardId) ||
+			cardId <= 0
+		) {
+			throw new Error(
+				'Некоректний ID картки.'
+			);
+		}
+
+		const newActivated:
+			0 | 1 =
+			activated ? 1 : 0;
+
+		await db.withTransactionAsync(
+			async () => {
+				await requireGame(
+					gameId
+				);
+
+				await updateAdventureCardActivated(
+					cardId,
+					newActivated
+				);
+			}
+		);
+
+		return activated;
+	};
+
+
+// ============================================================
+// EVENT DECK SCREEN
+// ============================================================
+
+export const getEventDeckScreen =
+	async (
+		gameId: number
+	): Promise<EventDeckScreenData> => {
+		if (
+			!Number.isInteger(gameId) ||
+			gameId <= 0
+		) {
+			throw new Error(
+				'Некоректний ID гри.'
+			);
+		}
+
+		await requireGame(
+			gameId
+		);
+
+		const [
+			eventCards,
+			eventDeck,
+		] = await Promise.all([
+			getEventCards(),
+			getEventDeck(gameId),
+		]);
+
+		return {
+			eventCards,
+			eventDeck,
+		};
+	};
+
+
+// ============================================================
+// ADD EVENT CARD TO DECK
+// ============================================================
+
+export const addEventCardToDeck =
+	async (
+		gameId: number,
+		eventCardId: number,
+		orderNumber: number
+	): Promise<EventDeck> => {
+		if (
+			!Number.isInteger(gameId) ||
+			gameId <= 0
+		) {
+			throw new Error(
+				'Некоректний ID гри.'
+			);
+		}
+
+		if (
+			!Number.isInteger(
+				eventCardId
+			) ||
+			eventCardId <= 0
+		) {
+			throw new Error(
+				'Некоректний ID карти події.'
+			);
+		}
+
+		if (
+			!Number.isInteger(
+				orderNumber
+			) ||
+			orderNumber <= 0
+		) {
+			throw new Error(
+				'Некоректний номер карти.'
+			);
+		}
+
+		let newDeckItem:
+			EventDeck = {
+			id: 0,
+			game_id: gameId,
+			event_card_id:
+				eventCardId,
+			remains_in_game: 0,
+			order_number:
+				orderNumber,
+		};
+
+		await db.withTransactionAsync(
+			async () => {
+				await requireGame(
+					gameId
+				);
+
+				const eventCards =
+					await getEventCards();
+
+				const eventCard =
+					eventCards.find(
+						(card) =>
+							card.id ===
+							eventCardId
+					);
+
+				if (!eventCard) {
+					throw new Error(
+						`Карту події з ID ${eventCardId} не знайдено`
+					);
+				}
+
+				const id =
+					await addEventDeckCard(
+						gameId,
+						eventCardId,
+						0,
+						orderNumber
+					);
+
+				newDeckItem = {
+					id,
+
+					game_id:
+						gameId,
+
+					event_card_id:
+						eventCardId,
+
+					remains_in_game:
+						0,
+
+					order_number:
+						orderNumber,
+				};
+			}
+		);
+
+		return newDeckItem;
+	};
+
+
+// ============================================================
+// REMOVE EVENT CARD FROM DECK
+// ============================================================
+
+export const removeEventCardFromDeck =
+	async (
+		gameId: number,
+		deckId: number
+	): Promise<void> => {
+		if (
+			!Number.isInteger(gameId) ||
+			gameId <= 0
+		) {
+			throw new Error(
+				'Некоректний ID гри.'
+			);
+		}
+
+		if (
+			!Number.isInteger(deckId) ||
+			deckId <= 0
+		) {
+			throw new Error(
+				'Некоректний ID елемента колоди.'
+			);
+		}
+
+		await db.withTransactionAsync(
+			async () => {
+				await requireGame(
+					gameId
+				);
+
+				await deleteEventDeckCard(
+					deckId
+				);
+			}
+		);
+	};
+
+
+// ============================================================
+// SET EVENT CARD REMAINS IN GAME
+// ============================================================
+
+export const setEventCardRemainsInGame =
+	async (
+		gameId: number,
+		deckId: number,
+		remainsInGame: boolean
+	): Promise<boolean> => {
+		if (
+			!Number.isInteger(gameId) ||
+			gameId <= 0
+		) {
+			throw new Error(
+				'Некоректний ID гри.'
+			);
+		}
+
+		if (
+			!Number.isInteger(deckId) ||
+			deckId <= 0
+		) {
+			throw new Error(
+				'Некоректний ID елемента колоди.'
+			);
+		}
+
+		const newValue:
+			0 | 1 =
+			remainsInGame ? 1 : 0;
+
+		await db.withTransactionAsync(
+			async () => {
+				await requireGame(
+					gameId
+				);
+
+				await updateEventCardRemainsInGame(
+					deckId,
+					newValue
+				);
+			}
+		);
+
+		return remainsInGame;
+	};
+
+
+// ============================================================
+// SAVE GAMES SCREEN
+// ============================================================
+
+export const getSaveGamesScreen =
+	async (): Promise<SaveGamesScreenData> => {
+		const games =
+			await getSavedGames();
+
+		return {
+			games,
+		};
+	};
+
+// ============================================================
+// SHIP SCREEN
+// ============================================================
+
+export const getShipScreen = async (
 	gameId: number
-): Promise<AdventureDeckScreenData> => {
+): Promise<ShipScreenData> => {
 	if (!Number.isInteger(gameId) || gameId <= 0) {
 		throw new Error('Некоректний ID гри.');
 	}
 
 	await requireGame(gameId);
 
-	const cards = await getAdventureCards(gameId);
+	const ship = await getShip(gameId);
+
+	if (!ship) {
+		throw new Error(
+			`Корабель для гри ${gameId} не знайдений.`
+		);
+	}
+
+	return {
+		ship,
+	};
+};
+
+export const saveShipScreen = async (
+	input: SaveShipScreenInput
+): Promise<void> => {
+	const {
+		gameId,
+		hull,
+		deck,
+		hospital,
+		caboose,
+		cabin,
+		bridge,
+		lastAction,
+		page,
+		location,
+		meat,
+		vegetables,
+		grain,
+		materials,
+		artifacts,
+		coins,
+	} = input;
+
+	if (!Number.isInteger(gameId) || gameId <= 0) {
+		throw new Error('Некоректний ID гри.');
+	}
+
+	const damageFields = [
+		['Корпус', hull, 0, 1],
+		['Палуба', deck, 0, 2],
+		['Шпиталь', hospital, 0, 2],
+		['Камбуз', caboose, 0, 2],
+		['Каюта', cabin, 0, 2],
+		['Місток', bridge, 0, 2],
+	] as const;
+
+	for (const [name, value, min, max] of damageFields) {
+		if (
+			!Number.isInteger(value) ||
+			value < min ||
+			value > max
+		) {
+			throw new Error(
+				`Некоректне значення пошкодження: ${name}.`
+			);
+		}
+	}
+
+	if (
+		!Number.isInteger(lastAction) ||
+		lastAction < 1 ||
+		lastAction > 6
+	) {
+		throw new Error(
+			'Остання дія корабля повинна бути від 1 до 6.'
+		);
+	}
+
+	if (!Number.isInteger(page) || page < 0) {
+		throw new Error(
+			'Номер сторінки не може бути від’ємним.'
+		);
+	}
+
+	const resourceFields = [
+		['м’яса', meat],
+		['овочів', vegetables],
+		['зерна', grain],
+		['матеріалів', materials],
+		['артефактів', artifacts],
+		['монет', coins],
+	] as const;
+
+	for (const [name, value] of resourceFields) {
+		if (
+			!Number.isInteger(value) ||
+			value < 0
+		) {
+			throw new Error(
+				`Кількість ${name} не може бути від’ємною.`
+			);
+		}
+	}
+
+	await db.withTransactionAsync(async () => {
+		await requireGame(gameId);
+
+		const ship = await getShip(gameId);
+
+		if (!ship) {
+			throw new Error(
+				`Корабель для гри ${gameId} не знайдений.`
+			);
+		}
+
+		await updateShip(gameId, {
+			hull,
+			deck,
+			hospital,
+			caboose,
+			cabin,
+			bridge,
+			lastAction,
+			page,
+			location: location.trim(),
+			meat,
+			vegetables,
+			grain,
+			materials,
+			artifacts,
+			coins,
+		});
+	});
+};
+
+// ============================================================
+// TASK DECK SCREEN
+// ============================================================
+
+export const getTaskDeckScreen = async (
+	gameId: number
+): Promise<TaskDeckScreenData> => {
+	if (!Number.isInteger(gameId) || gameId <= 0) {
+		throw new Error('Некоректний ID гри.');
+	}
+
+	await requireGame(gameId);
+
+	const cards = await getTaskCards(gameId);
 
 	return {
 		cards,
 	};
 };
 
-/**
- * Додає нову карту пригод до колоди гри.
- */
-export const addAdventureCard = async (
+export const addTaskCardToDeck = async (
 	gameId: number,
-	cardNumber: number,
-	name: string,
-	type: string,
-	totem: boolean
-): Promise<void> => {
+	cardNumber: number
+): Promise<TaskCard> => {
 	if (!Number.isInteger(gameId) || gameId <= 0) {
 		throw new Error('Некоректний ID гри.');
 	}
 
-	if (!Number.isInteger(cardNumber)) {
-		throw new Error('Некоректний номер картки.');
+	if (
+		!Number.isInteger(cardNumber) ||
+		cardNumber < 1 ||
+		cardNumber > 218
+	) {
+		throw new Error(
+			'Номер картки завдання повинен бути від 1 до 218.'
+		);
 	}
 
-	const trimmedName = name.trim();
-
-	if (!trimmedName) {
-		throw new Error('Введіть назву картки.');
-	}
+	let newCard: TaskCard = {
+		id: 0,
+		game_id: gameId,
+		card_number: cardNumber,
+		done: 0,
+	};
 
 	await db.withTransactionAsync(async () => {
 		await requireGame(gameId);
 
-		await addAdventureCardRepository(
-			gameId,
-			cardNumber,
-			trimmedName,
-			type,
-			totem ? 1 : 0
+		const existingCards = await getTaskCards(gameId);
+
+		const exists = existingCards.some(
+			(card) => card.card_number === cardNumber
 		);
+
+		if (exists) {
+			throw new Error(
+				`Картка №${cardNumber} вже додана.`
+			);
+		}
+
+		const id = await addTaskCard(
+			gameId,
+			cardNumber
+		);
+
+		newCard = {
+			id,
+			game_id: gameId,
+			card_number: cardNumber,
+			done: 0,
+		};
 	});
+
+	return newCard;
 };
 
-/**
- * Видаляє карту пригод.
- */
-export const deleteAdventureCard = async (
+export const removeTaskCardFromDeck = async (
 	gameId: number,
 	cardId: number
 ): Promise<void> => {
@@ -2192,18 +3352,23 @@ export const deleteAdventureCard = async (
 	await db.withTransactionAsync(async () => {
 		await requireGame(gameId);
 
-		await deleteAdventureCardRepository(cardId);
+		await requireTaskCard(
+			gameId,
+			cardId
+		);
+
+		await deleteTaskCard(
+			gameId,
+			cardId
+		);
 	});
 };
 
-/**
- * Змінює стан активації карти пригод.
- */
-export const setAdventureCardActivated = async (
+export const setTaskCardDone = async (
 	gameId: number,
 	cardId: number,
-	activated: boolean
-): Promise<boolean> => {
+	done: 0 | 1
+): Promise<TaskCard> => {
 	if (!Number.isInteger(gameId) || gameId <= 0) {
 		throw new Error('Некоректний ID гри.');
 	}
@@ -2212,156 +3377,103 @@ export const setAdventureCardActivated = async (
 		throw new Error('Некоректний ID картки.');
 	}
 
-	const newActivated: 0 | 1 = activated ? 1 : 0;
+	let updatedCard: TaskCard;
 
 	await db.withTransactionAsync(async () => {
 		await requireGame(gameId);
 
-		await updateAdventureCardActivated(
-			cardId,
-			newActivated
+		const card = await requireTaskCard(
+			gameId,
+			cardId
 		);
+
+		if (card.done === done) {
+			updatedCard = card;
+			return;
+		}
+
+		await updateTaskCardDone(
+			gameId,
+			cardId,
+			done
+		);
+
+		updatedCard = {
+			...card,
+			done,
+		};
 	});
 
-	return activated;
+	return updatedCard!;
 };
 
 // ============================================================
-// EVENT DECK SCREEN
+// LOAD GAME SCREEN
 // ============================================================
 
-export const getEventDeckScreen = async (
+export const getLoadGameScreen =
+	async (): Promise<LoadGameScreenData> => {
+		const games = await getSavedGames();
+
+		return {
+			games,
+		};
+	};
+
+
+// ============================================================
+// EDIT PLAYER SCREEN
+// ============================================================
+
+export async function getEditPlayersScreen(
 	gameId: number
-): Promise<EventDeckScreenData> => {
-	if (!Number.isInteger(gameId) || gameId <= 0) {
-		throw new Error('Некоректний ID гри.');
+): Promise<EditPlayersScreenData> {
+	if (
+		!Number.isInteger(gameId) ||
+		gameId <= 0
+	) {
+		throw new Error(
+			'Некоректний ID гри.'
+		);
 	}
 
 	await requireGame(gameId);
 
-	const eventCards = await getEventCards();
-	const eventDeck = await getEventDeck(gameId);
+	const [
+		players,
+		characters,
+		characterNames,
+	] = await Promise.all([
+		getPlayers(gameId),
+		getCharacters(gameId),
+		getPlayableCharacterNames(),
+	]);
 
 	return {
-		eventCards,
-		eventDeck,
+		players: players.map((player) => ({
+			id: player.id,
+			name: player.name,
+			team_tokens: player.team_tokens,
+			ability_card_id_1:
+				player.ability_card_id_1,
+			ability_card_id_2:
+				player.ability_card_id_2,
+			ability_card_id_3:
+				player.ability_card_id_3,
+		})),
+
+		characters: characters.map((character) => ({
+			id: character.id,
+			character_name_id:
+				character.character_name_id,
+			player_id: character.player_id,
+		})),
+
+		characterNames: characterNames.map(
+			(character) => ({
+				id: character.id,
+				name: character.name,
+			})
+		),
 	};
-};
-
-export const addEventCardToDeck = async (
-	gameId: number,
-	eventCardId: number,
-	orderNumber: number
-): Promise<EventDeck> => {
-	if (!Number.isInteger(gameId) || gameId <= 0) {
-		throw new Error('Некоректний ID гри.');
-	}
-
-	if (!Number.isInteger(eventCardId) || eventCardId <= 0) {
-		throw new Error('Некоректний ID карти події.');
-	}
-
-	if (!Number.isInteger(orderNumber) || orderNumber <= 0) {
-		throw new Error('Некоректний номер карти.');
-	}
-
-	let newDeckItem: EventDeck = {
-		id: 0,
-		game_id: gameId,
-		event_card_id: eventCardId,
-		remains_in_game: 0,
-		order_number: orderNumber,
-	};
-
-	await db.withTransactionAsync(async () => {
-		await requireGame(gameId);
-
-		const eventCards = await getEventCards();
-
-		const eventCard = eventCards.find(
-			(card) => card.id === eventCardId
-		);
-
-		if (!eventCard) {
-			throw new Error(
-				`Карту події з ID ${eventCardId} не знайдено`
-			);
-		}
-
-		const id = await addEventDeckCard(
-			gameId,
-			eventCardId,
-			0,
-			orderNumber
-		);
-
-		newDeckItem = {
-			id,
-			game_id: gameId,
-			event_card_id: eventCardId,
-			remains_in_game: 0,
-			order_number: orderNumber,
-		};
-	});
-
-	return newDeckItem;
-};
-
-export const removeEventCardFromDeck = async (
-	gameId: number,
-	deckId: number
-): Promise<void> => {
-	if (!Number.isInteger(gameId) || gameId <= 0) {
-		throw new Error('Некоректний ID гри.');
-	}
-
-	if (!Number.isInteger(deckId) || deckId <= 0) {
-		throw new Error('Некоректний ID елемента колоди.');
-	}
-
-	await db.withTransactionAsync(async () => {
-		await requireGame(gameId);
-
-		await deleteEventDeckCard(deckId);
-	});
-};
-
-export const setEventCardRemainsInGame = async (
-	gameId: number,
-	deckId: number,
-	remainsInGame: boolean
-): Promise<boolean> => {
-	if (!Number.isInteger(gameId) || gameId <= 0) {
-		throw new Error('Некоректний ID гри.');
-	}
-
-	if (!Number.isInteger(deckId) || deckId <= 0) {
-		throw new Error('Некоректний ID елемента колоди.');
-	}
-
-	const newValue: 0 | 1 = remainsInGame ? 1 : 0;
-
-	await db.withTransactionAsync(async () => {
-		await requireGame(gameId);
-
-		await updateEventCardRemainsInGame(
-			deckId,
-			newValue
-		);
-	});
-
-	return remainsInGame;
-};
-
-// ============================================================
-// SAVE GAMES SCREEN
-// ============================================================
-
-export const getSaveGamesScreen = async (): Promise<SaveGamesScreenData> => {
-	const games = await getSavedGames();
-
-	return {
-		games,
-	};
-};
-
+}

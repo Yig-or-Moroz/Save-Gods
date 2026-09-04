@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+
 import {
 	View,
 	Text,
@@ -9,34 +10,21 @@ import {
 	ActivityIndicator,
 	TextInput,
 } from 'react-native';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { db } from '../database';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
-type ShipData = {
-	id: number;
-	game_id: number;
-	hull: number;
-	deck: number;
-	hospital: number;
-	caboose: number;
-	cabin: number;
-	bridge: number;
-	last_action: number;
-	page: number;
-	location: string;
-	meat: number;
-	vegetables: number;
-	grain: number;
-	materials: number;
-	artifacts: number;
-	coins: number;
-};
+import {
+	getShipScreen,
+	saveShipScreen,
+	type Ship,
+} from '../services/gameService';
 
 const ShipScreen = ({ navigation, route }: any) => {
 	const { gameId } = route.params;
+
 	const [isLoading, setIsLoading] = useState(true);
-	const [ship, setShip] = useState<ShipData | null>(null);
+	const [ship, setShip] = useState<Ship | null>(null);
 
 	const [hull, setHull] = useState(0);
 	const [deck, setDeck] = useState(0);
@@ -44,9 +32,12 @@ const ShipScreen = ({ navigation, route }: any) => {
 	const [caboose, setCaboose] = useState(0);
 	const [cabin, setCabin] = useState(0);
 	const [bridge, setBridge] = useState(0);
+
 	const [lastAction, setLastAction] = useState(1);
+
 	const [page, setPage] = useState('');
 	const [location, setLocation] = useState('');
+
 	const [meat, setMeat] = useState('');
 	const [vegetables, setVegetables] = useState('');
 	const [grain, setGrain] = useState('');
@@ -60,110 +51,133 @@ const ShipScreen = ({ navigation, route }: any) => {
 
 	const loadShipData = async () => {
 		try {
-			const result = await db.getAllAsync<ShipData>(
-				'SELECT * FROM ships WHERE game_id = ?;',
-				[gameId]
+			const result = await getShipScreen(gameId);
+
+			setShip(result.ship);
+			updateStateFromShip(result.ship);
+		} catch (error: any) {
+			console.error('[ShipScreen] LOAD ERROR:', error);
+
+			Alert.alert(
+				'Помилка',
+				error?.message || 'Не вдалося завантажити дані корабля'
 			);
-			if (result.length === 0) {
-				await db.runAsync(
-					`INSERT INTO ships (
-						game_id, hull, deck, hospital, caboose, cabin, bridge,
-						last_action, page, location,
-						meat, vegetables, grain, materials, artifacts, coins
-					) VALUES (?, 0, 0, 0, 0, 0, 0, 1, 0, '', 0, 0, 0, 0, 0, 0);`,
-					[gameId]
-				);
-				const newResult = await db.getAllAsync<ShipData>(
-					'SELECT * FROM ships WHERE game_id = ?;',
-					[gameId]
-				);
-				if (newResult.length > 0) {
-					setShip(newResult[0]);
-					updateStateFromShip(newResult[0]);
-				}
-			} else {
-				setShip(result[0]);
-				updateStateFromShip(result[0]);
-			}
-		} catch (error) {
-			console.error('Помилка завантаження корабля:', error);
-			Alert.alert('Помилка', 'Не вдалося завантажити дані корабля');
 		} finally {
 			setIsLoading(false);
 		}
 	};
 
-	const updateStateFromShip = (data: ShipData) => {
+	const updateStateFromShip = (data: Ship) => {
 		setHull(data.hull);
 		setDeck(data.deck);
 		setHospital(data.hospital);
 		setCaboose(data.caboose);
 		setCabin(data.cabin);
 		setBridge(data.bridge);
+
 		setLastAction(data.last_action);
-		setPage(data.page === 0 ? '' : data.page.toString());
+
+		setPage(
+			data.page === 0
+				? ''
+				: data.page.toString()
+		);
+
 		setLocation(data.location || '');
-		setMeat(data.meat === 0 ? '' : data.meat.toString());
-		setVegetables(data.vegetables === 0 ? '' : data.vegetables.toString());
-		setGrain(data.grain === 0 ? '' : data.grain.toString());
-		setMaterials(data.materials === 0 ? '' : data.materials.toString());
-		setArtifacts(data.artifacts === 0 ? '' : data.artifacts.toString());
-		setCoins(data.coins === 0 ? '' : data.coins.toString());
+
+		setMeat(
+			data.meat === 0
+				? ''
+				: data.meat.toString()
+		);
+
+		setVegetables(
+			data.vegetables === 0
+				? ''
+				: data.vegetables.toString()
+		);
+
+		setGrain(
+			data.grain === 0
+				? ''
+				: data.grain.toString()
+		);
+
+		setMaterials(
+			data.materials === 0
+				? ''
+				: data.materials.toString()
+		);
+
+		setArtifacts(
+			data.artifacts === 0
+				? ''
+				: data.artifacts.toString()
+		);
+
+		setCoins(
+			data.coins === 0
+				? ''
+				: data.coins.toString()
+		);
 	};
 
 	const handleSave = async () => {
 		try {
-			await db.runAsync(
-				`UPDATE ships SET
-          hull = ?,
-          deck = ?,
-          hospital = ?,
-          caboose = ?,
-          cabin = ?,
-          bridge = ?,
-          last_action = ?,
-          page = ?,
-          location = ?,
-          meat = ?,
-          vegetables = ?,
-          grain = ?,
-          materials = ?,
-          artifacts = ?,
-          coins = ?
-        WHERE game_id = ?;`,
+			await saveShipScreen({
+				gameId,
+
+				hull,
+				deck,
+				hospital,
+				caboose,
+				cabin,
+				bridge,
+
+				lastAction,
+
+				page: parseInt(page, 10) || 0,
+				location,
+
+				meat: parseInt(meat, 10) || 0,
+				vegetables: parseInt(vegetables, 10) || 0,
+				grain: parseInt(grain, 10) || 0,
+				materials: parseInt(materials, 10) || 0,
+				artifacts: parseInt(artifacts, 10) || 0,
+				coins: parseInt(coins, 10) || 0,
+			});
+
+			Alert.alert(
+				'Успіх',
+				'Дані корабля збережено!',
 				[
-					hull,
-					deck,
-					hospital,
-					caboose,
-					cabin,
-					bridge,
-					lastAction,
-					parseInt(page) || 0,
-					location,
-					parseInt(meat) || 0,
-					parseInt(vegetables) || 0,
-					parseInt(grain) || 0,
-					parseInt(materials) || 0,
-					parseInt(artifacts) || 0,
-					parseInt(coins) || 0,
-					gameId,
+					{
+						text: 'ОК',
+						onPress: () => navigation.goBack(),
+					},
 				]
 			);
-			Alert.alert('Успіх', 'Дані корабля збережено!', [
-				{ text: 'ОК', onPress: () => navigation.goBack() }
-			]);
-		} catch (error) {
-			console.error('Помилка збереження:', error);
-			Alert.alert('Помилка', 'Не вдалося зберегти дані');
+		} catch (error: any) {
+			console.error('[ShipScreen] SAVE ERROR:', error);
+
+			Alert.alert(
+				'Помилка',
+				error?.message || 'Не вдалося зберегти дані'
+			);
 		}
 	};
 
 	if (isLoading) {
 		return (
 			<SafeAreaView style={styles.loadingContainer}>
-				<ActivityIndicator size="large" color="#004d57" />
-				<Text style={styles.loadingText}>Завантаження...</Text>
+				<ActivityIndicator
+					size="large"
+					color="#004d57"
+				/>
+
+				<Text style={styles.loadingText}>
+					Завантаження...
+				</Text>
 			</SafeAreaView>
 		);
 	}
@@ -172,35 +186,66 @@ const ShipScreen = ({ navigation, route }: any) => {
 		<SafeAreaView style={styles.container}>
 			<View style={styles.headerWrapper}>
 				<View style={styles.backButtonWrapper}>
-					<TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-						<Ionicons name="arrow-back" size={22} color="#004d57" />
+					<TouchableOpacity
+						onPress={() => navigation.goBack()}
+						style={styles.backButton}
+					>
+						<Ionicons
+							name="arrow-back"
+							size={22}
+							color="#004d57"
+						/>
 					</TouchableOpacity>
 				</View>
+
 				<View style={styles.titleWrapper}>
-					<Text style={styles.header}>Корабель</Text>
+					<Text style={styles.header}>
+						Корабель
+					</Text>
 				</View>
 			</View>
 
-			<ScrollView contentContainerStyle={styles.scrollContent}>
-				<Text style={styles.sectionTitle}>Пошкодження:</Text>
+			<ScrollView
+				contentContainerStyle={styles.scrollContent}
+			>
+				<Text style={styles.sectionTitle}>
+					Пошкодження:
+				</Text>
 
 				<View style={styles.damageRow}>
-					<Text style={styles.damageLabel}>Корпус</Text>
+					<Text style={styles.damageLabel}>
+						Корпус
+					</Text>
+
 					<TouchableOpacity
-						style={[styles.checkboxSmall, hull === 1 && styles.checkboxChecked]}
-						onPress={() => setHull(hull === 1 ? 0 : 1)}
+						style={[
+							styles.checkboxSmall,
+							hull === 1 && styles.checkboxChecked,
+						]}
+						onPress={() =>
+							setHull(hull === 1 ? 0 : 1)
+						}
 					>
-						{hull === 1 && <View style={styles.checkmark} />}
+						{hull === 1 && (
+							<View style={styles.checkmark} />
+						)}
 					</TouchableOpacity>
 				</View>
 
 				<View style={styles.damageRow}>
-					<Text style={styles.damageLabel}>Палуба</Text>
+					<Text style={styles.damageLabel}>
+						Палуба
+					</Text>
+
 					<View style={styles.checkboxGroup}>
 						{[1, 2].map((num) => (
 							<TouchableOpacity
 								key={num}
-								style={[styles.checkboxSmall, deck >= num && styles.checkboxChecked]}
+								style={[
+									styles.checkboxSmall,
+									deck >= num &&
+									styles.checkboxChecked,
+								]}
 								onPress={() => {
 									if (deck === num) {
 										setDeck(num - 1);
@@ -209,19 +254,28 @@ const ShipScreen = ({ navigation, route }: any) => {
 									}
 								}}
 							>
-								{deck >= num && <View style={styles.checkmark} />}
+								{deck >= num && (
+									<View style={styles.checkmark} />
+								)}
 							</TouchableOpacity>
 						))}
 					</View>
 				</View>
 
 				<View style={styles.damageRow}>
-					<Text style={styles.damageLabel}>Шпиталь</Text>
+					<Text style={styles.damageLabel}>
+						Шпиталь
+					</Text>
+
 					<View style={styles.checkboxGroup}>
 						{[1, 2].map((num) => (
 							<TouchableOpacity
 								key={num}
-								style={[styles.checkboxSmall, hospital >= num && styles.checkboxChecked]}
+								style={[
+									styles.checkboxSmall,
+									hospital >= num &&
+									styles.checkboxChecked,
+								]}
 								onPress={() => {
 									if (hospital === num) {
 										setHospital(num - 1);
@@ -230,19 +284,28 @@ const ShipScreen = ({ navigation, route }: any) => {
 									}
 								}}
 							>
-								{hospital >= num && <View style={styles.checkmark} />}
+								{hospital >= num && (
+									<View style={styles.checkmark} />
+								)}
 							</TouchableOpacity>
 						))}
 					</View>
 				</View>
 
 				<View style={styles.damageRow}>
-					<Text style={styles.damageLabel}>Камбуз</Text>
+					<Text style={styles.damageLabel}>
+						Камбуз
+					</Text>
+
 					<View style={styles.checkboxGroup}>
 						{[1, 2].map((num) => (
 							<TouchableOpacity
 								key={num}
-								style={[styles.checkboxSmall, caboose >= num && styles.checkboxChecked]}
+								style={[
+									styles.checkboxSmall,
+									caboose >= num &&
+									styles.checkboxChecked,
+								]}
 								onPress={() => {
 									if (caboose === num) {
 										setCaboose(num - 1);
@@ -251,19 +314,28 @@ const ShipScreen = ({ navigation, route }: any) => {
 									}
 								}}
 							>
-								{caboose >= num && <View style={styles.checkmark} />}
+								{caboose >= num && (
+									<View style={styles.checkmark} />
+								)}
 							</TouchableOpacity>
 						))}
 					</View>
 				</View>
 
 				<View style={styles.damageRow}>
-					<Text style={styles.damageLabel}>Каюта</Text>
+					<Text style={styles.damageLabel}>
+						Каюта
+					</Text>
+
 					<View style={styles.checkboxGroup}>
 						{[1, 2].map((num) => (
 							<TouchableOpacity
 								key={num}
-								style={[styles.checkboxSmall, cabin >= num && styles.checkboxChecked]}
+								style={[
+									styles.checkboxSmall,
+									cabin >= num &&
+									styles.checkboxChecked,
+								]}
 								onPress={() => {
 									if (cabin === num) {
 										setCabin(num - 1);
@@ -272,19 +344,28 @@ const ShipScreen = ({ navigation, route }: any) => {
 									}
 								}}
 							>
-								{cabin >= num && <View style={styles.checkmark} />}
+								{cabin >= num && (
+									<View style={styles.checkmark} />
+								)}
 							</TouchableOpacity>
 						))}
 					</View>
 				</View>
 
 				<View style={styles.damageRow}>
-					<Text style={styles.damageLabel}>Місток</Text>
+					<Text style={styles.damageLabel}>
+						Місток
+					</Text>
+
 					<View style={styles.checkboxGroup}>
 						{[1, 2].map((num) => (
 							<TouchableOpacity
 								key={num}
-								style={[styles.checkboxSmall, bridge >= num && styles.checkboxChecked]}
+								style={[
+									styles.checkboxSmall,
+									bridge >= num &&
+									styles.checkboxChecked,
+								]}
 								onPress={() => {
 									if (bridge === num) {
 										setBridge(num - 1);
@@ -293,31 +374,52 @@ const ShipScreen = ({ navigation, route }: any) => {
 									}
 								}}
 							>
-								{bridge >= num && <View style={styles.checkmark} />}
+								{bridge >= num && (
+									<View style={styles.checkmark} />
+								)}
 							</TouchableOpacity>
 						))}
 					</View>
 				</View>
 
-				<Text style={styles.sectionTitle}>Остання дія корабля:</Text>
+				<Text style={styles.sectionTitle}>
+					Остання дія корабля:
+				</Text>
+
 				<View style={styles.radioGroup}>
 					{[1, 2, 3, 4, 5, 6].map((num) => (
 						<TouchableOpacity
 							key={num}
-							style={[styles.radioButton, lastAction === num && styles.radioSelected]}
+							style={[
+								styles.radioButton,
+								lastAction === num &&
+								styles.radioSelected,
+							]}
 							onPress={() => setLastAction(num)}
 						>
-							<Text style={[styles.radioText, lastAction === num && styles.radioTextSelected]}>
+							<Text
+								style={[
+									styles.radioText,
+									lastAction === num &&
+									styles.radioTextSelected,
+								]}
+							>
 								{num}
 							</Text>
 						</TouchableOpacity>
 					))}
 				</View>
 
-				<Text style={styles.sectionTitle}>Наша локація:</Text>
+				<Text style={styles.sectionTitle}>
+					Наша локація:
+				</Text>
+
 				<View style={styles.locationRow}>
 					<View style={styles.locationInput}>
-						<Text style={styles.locationLabel}>сторінка:</Text>
+						<Text style={styles.locationLabel}>
+							сторінка:
+						</Text>
+
 						<TextInput
 							style={styles.inputSmall}
 							value={page}
@@ -327,8 +429,12 @@ const ShipScreen = ({ navigation, route }: any) => {
 							placeholder="0"
 						/>
 					</View>
+
 					<View style={styles.locationInput}>
-						<Text style={styles.locationLabel}>локація:</Text>
+						<Text style={styles.locationLabel}>
+							локація:
+						</Text>
+
 						<TextInput
 							style={styles.inputSmall}
 							value={location}
@@ -339,10 +445,16 @@ const ShipScreen = ({ navigation, route }: any) => {
 					</View>
 				</View>
 
-				<Text style={styles.sectionTitle}>Ресурси:</Text>
+				<Text style={styles.sectionTitle}>
+					Ресурси:
+				</Text>
+
 				<View style={styles.resourcesGrid}>
 					<View style={styles.resourceRow}>
-						<Text style={styles.resourceLabelLeft}>м'ясо:</Text>
+						<Text style={styles.resourceLabelLeft}>
+							м'ясо:
+						</Text>
+
 						<TextInput
 							style={styles.inputResource}
 							value={meat}
@@ -350,7 +462,11 @@ const ShipScreen = ({ navigation, route }: any) => {
 							keyboardType="numeric"
 							placeholder="0"
 						/>
-						<Text style={styles.resourceLabel}>матеріали:</Text>
+
+						<Text style={styles.resourceLabel}>
+							матеріали:
+						</Text>
+
 						<TextInput
 							style={styles.inputResource}
 							value={materials}
@@ -359,8 +475,12 @@ const ShipScreen = ({ navigation, route }: any) => {
 							placeholder="0"
 						/>
 					</View>
+
 					<View style={styles.resourceRow}>
-						<Text style={styles.resourceLabelLeft}>овочі:</Text>
+						<Text style={styles.resourceLabelLeft}>
+							овочі:
+						</Text>
+
 						<TextInput
 							style={styles.inputResource}
 							value={vegetables}
@@ -368,7 +488,11 @@ const ShipScreen = ({ navigation, route }: any) => {
 							keyboardType="numeric"
 							placeholder="0"
 						/>
-						<Text style={styles.resourceLabel}>артефакти:</Text>
+
+						<Text style={styles.resourceLabel}>
+							артефакти:
+						</Text>
+
 						<TextInput
 							style={styles.inputResource}
 							value={artifacts}
@@ -377,8 +501,12 @@ const ShipScreen = ({ navigation, route }: any) => {
 							placeholder="0"
 						/>
 					</View>
+
 					<View style={styles.resourceRow}>
-						<Text style={styles.resourceLabelLeft}>зерно:</Text>
+						<Text style={styles.resourceLabelLeft}>
+							зерно:
+						</Text>
+
 						<TextInput
 							style={styles.inputResource}
 							value={grain}
@@ -386,7 +514,11 @@ const ShipScreen = ({ navigation, route }: any) => {
 							keyboardType="numeric"
 							placeholder="0"
 						/>
-						<Text style={styles.resourceLabel}>монети:</Text>
+
+						<Text style={styles.resourceLabel}>
+							монети:
+						</Text>
+
 						<TextInput
 							style={styles.inputResource}
 							value={coins}
@@ -397,8 +529,13 @@ const ShipScreen = ({ navigation, route }: any) => {
 					</View>
 				</View>
 
-				<TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-					<Text style={styles.saveButtonText}>Зберегти</Text>
+				<TouchableOpacity
+					style={styles.saveButton}
+					onPress={handleSave}
+				>
+					<Text style={styles.saveButtonText}>
+						Зберегти
+					</Text>
 				</TouchableOpacity>
 			</ScrollView>
 		</SafeAreaView>
@@ -410,18 +547,21 @@ const styles = StyleSheet.create({
 		flex: 1,
 		backgroundColor: '#f5f0e8',
 	},
+
 	loadingContainer: {
 		flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center',
 		backgroundColor: '#f5f0e8',
 	},
+
 	loadingText: {
 		marginTop: 16,
 		fontSize: 18,
 		color: '#004d57',
 		fontFamily: 'Kyiv-Machine',
 	},
+
 	headerWrapper: {
 		flexDirection: 'column',
 		width: '100%',
@@ -434,10 +574,12 @@ const styles = StyleSheet.create({
 		borderRightColor: '#f5f0e8',
 		borderBottomColor: '#004d57',
 	},
+
 	backButtonWrapper: {
 		alignSelf: 'flex-start',
 		marginBottom: 8,
 	},
+
 	backButton: {
 		width: 40,
 		height: 40,
@@ -448,21 +590,25 @@ const styles = StyleSheet.create({
 		justifyContent: 'center',
 		backgroundColor: '#fff',
 	},
+
 	titleWrapper: {
 		alignSelf: 'center',
 		width: '100%',
 		marginBottom: 16,
 	},
+
 	header: {
 		fontSize: 28,
 		fontFamily: 'Kyiv-Machine',
 		color: '#004d57',
 		textAlign: 'center',
 	},
+
 	scrollContent: {
 		padding: 20,
 		paddingBottom: 40,
 	},
+
 	sectionTitle: {
 		fontSize: 20,
 		fontFamily: 'Kyiv-Machine',
@@ -470,20 +616,24 @@ const styles = StyleSheet.create({
 		marginTop: 16,
 		marginBottom: 12,
 	},
+
 	damageRow: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		marginBottom: 10,
 	},
+
 	damageLabel: {
 		fontSize: 18,
 		fontFamily: 'Kyiv-Machine',
 		color: '#004d57',
 		width: 100,
 	},
+
 	checkboxGroup: {
 		flexDirection: 'row',
 	},
+
 	checkboxSmall: {
 		width: 28,
 		height: 28,
@@ -495,19 +645,23 @@ const styles = StyleSheet.create({
 		justifyContent: 'center',
 		alignItems: 'center',
 	},
+
 	checkboxChecked: {
 		backgroundColor: '#004d57',
 	},
+
 	checkmark: {
 		width: 20,
 		height: 20,
 		backgroundColor: '#004d57',
 		borderRadius: 2,
 	},
+
 	radioGroup: {
 		flexDirection: 'row',
 		marginBottom: 16,
 	},
+
 	radioButton: {
 		width: 44,
 		height: 44,
@@ -519,32 +673,39 @@ const styles = StyleSheet.create({
 		backgroundColor: '#fff',
 		marginRight: 8,
 	},
+
 	radioSelected: {
 		backgroundColor: '#004d57',
 	},
+
 	radioText: {
 		fontSize: 18,
 		color: '#004d57',
 		fontFamily: 'Kyiv-Machine',
 	},
+
 	radioTextSelected: {
 		color: '#fff',
 	},
+
 	locationRow: {
 		flexDirection: 'row',
 		marginBottom: 16,
 		gap: 34,
 	},
+
 	locationInput: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		gap: 8,
 	},
+
 	locationLabel: {
 		fontSize: 16,
 		color: '#004d57',
 		fontFamily: 'Kyiv-Machine',
 	},
+
 	inputSmall: {
 		borderWidth: 1,
 		borderColor: '#ccc',
@@ -556,27 +717,32 @@ const styles = StyleSheet.create({
 		textAlign: 'center',
 		fontFamily: 'Kyiv-Machine',
 	},
+
 	resourcesGrid: {
 		marginBottom: 16,
 	},
+
 	resourceRow: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		marginBottom: 10,
 		gap: 12,
 	},
+
 	resourceLabel: {
 		fontSize: 16,
 		color: '#004d57',
 		fontFamily: 'Kyiv-Machine',
 		width: 90,
 	},
+
 	resourceLabelLeft: {
 		fontSize: 16,
 		color: '#004d57',
 		fontFamily: 'Kyiv-Machine',
 		width: 70,
 	},
+
 	inputResource: {
 		borderWidth: 1,
 		borderColor: '#ccc',
@@ -588,6 +754,7 @@ const styles = StyleSheet.create({
 		textAlign: 'center',
 		fontFamily: 'Kyiv-Machine',
 	},
+
 	saveButton: {
 		backgroundColor: '#691716',
 		paddingVertical: 16,
@@ -595,6 +762,7 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		marginTop: 20,
 	},
+
 	saveButtonText: {
 		fontSize: 20,
 		color: '#fff',
@@ -604,3 +772,4 @@ const styles = StyleSheet.create({
 });
 
 export default ShipScreen;
+

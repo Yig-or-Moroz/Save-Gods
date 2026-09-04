@@ -217,3 +217,23 @@ export async function getPlayerCount(
 
 	return row?.count ?? 0;
 }
+
+
+export type PlayerForLoadGame = {
+	game_id: number;
+	name: string;
+};
+
+export const getPlayersForLoadGameScreen = async (): Promise<
+	PlayerForLoadGame[]
+> => {
+	return db.getAllAsync<PlayerForLoadGame>(
+		`
+      SELECT
+        game_id,
+        name
+      FROM players
+      ORDER BY game_id;
+    `
+	);
+};

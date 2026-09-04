@@ -365,35 +365,32 @@ function createSchema(): void {
        ========================================================= */
 
     CREATE TABLE IF NOT EXISTS ships (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  game_id INTEGER NOT NULL UNIQUE,
 
-      game_id INTEGER NOT NULL UNIQUE,
+  hull INTEGER NOT NULL DEFAULT 0 CHECK (hull >= 0),
+  deck INTEGER NOT NULL DEFAULT 0 CHECK (deck >= 0),
+  hospital INTEGER NOT NULL DEFAULT 0 CHECK (hospital >= 0),
+  caboose INTEGER NOT NULL DEFAULT 0 CHECK (caboose >= 0),
+  cabin INTEGER NOT NULL DEFAULT 0 CHECK (cabin >= 0),
+  bridge INTEGER NOT NULL DEFAULT 0 CHECK (bridge >= 0),
 
-      damage INTEGER NOT NULL DEFAULT 0
-        CHECK (damage >= 0),
+  last_action INTEGER NOT NULL DEFAULT 0 CHECK (last_action >= 0),
+  page INTEGER NOT NULL DEFAULT 0 CHECK (page >= 0),
 
-      crew INTEGER NOT NULL DEFAULT 0
-        CHECK (crew >= 0),
+  location TEXT NOT NULL DEFAULT '',
 
-      food INTEGER NOT NULL DEFAULT 0
-        CHECK (food >= 0),
+  meat INTEGER NOT NULL DEFAULT 0 CHECK (meat >= 0),
+  vegetables INTEGER NOT NULL DEFAULT 0 CHECK (vegetables >= 0),
+  grain INTEGER NOT NULL DEFAULT 0 CHECK (grain >= 0),
+  materials INTEGER NOT NULL DEFAULT 0 CHECK (materials >= 0),
+  artifacts INTEGER NOT NULL DEFAULT 0 CHECK (artifacts >= 0),
+  coins INTEGER NOT NULL DEFAULT 0 CHECK (coins >= 0),
 
-      water INTEGER NOT NULL DEFAULT 0
-        CHECK (water >= 0),
-
-      morale INTEGER NOT NULL DEFAULT 0
-        CHECK (morale >= 0),
-
-      sails INTEGER NOT NULL DEFAULT 0
-        CHECK (sails >= 0),
-
-      cannons INTEGER NOT NULL DEFAULT 0
-        CHECK (cannons >= 0),
-
-      FOREIGN KEY (game_id)
-        REFERENCES games(id)
-        ON DELETE CASCADE
-    );
+  FOREIGN KEY (game_id)
+    REFERENCES games(id)
+    ON DELETE CASCADE
+);
 
     /* =========================================================
        CHEST GOODS

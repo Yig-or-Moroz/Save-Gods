@@ -19,15 +19,16 @@ import {
 } from 'react-native';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { db } from '../database';
+
 import Ionicons from '@expo/vector-icons/Ionicons';
 
-type TaskCard = {
-	id: number;
-	game_id: number;
-	card_number: number;
-	done: number;
-};
+import {
+	getTaskDeckScreen,
+	addTaskCardToDeck,
+	removeTaskCardFromDeck,
+	setTaskCardDone,
+	type TaskCard,
+} from '../services/gameService';
 
 type ZoneType = 'active' | 'used' | 'trash';
 
@@ -55,6 +56,7 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 	const [isLoading, setIsLoading] = useState(true);
 
 	const [activeCards, setActiveCards] = useState<TaskCard[]>([]);
+
 	const [usedCards, setUsedCards] = useState<TaskCard[]>([]);
 
 	const [inputNumber, setInputNumber] = useState('');
@@ -73,12 +75,15 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 	// ---------------------------------------------------------
 
 	const activeZoneRef = useRef<View>(null);
+
 	const usedZoneRef = useRef<View>(null);
+
 	const trashZoneRef = useRef<View>(null);
 
 	const dragContainerRef = useRef<View>(null);
 
-	const draggingCardRef = useRef<TaskCard | null>(null);
+	const draggingCardRef =
+		useRef<TaskCard | null>(null);
 
 	const zoneLayoutsRef = useRef<{
 		active: ZoneLayout;
@@ -90,39 +95,37 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 		trash: EMPTY_LAYOUT,
 	});
 
-	const dragContainerLayoutRef = useRef<ZoneLayout>(
-		EMPTY_LAYOUT
-	);
+	const dragContainerLayoutRef =
+		useRef<ZoneLayout>(EMPTY_LAYOUT);
 
 	// Animated position of dragged card
-	const dragX = useRef(new Animated.Value(0)).current;
-	const dragY = useRef(new Animated.Value(0)).current;
+	const dragX = useRef(
+		new Animated.Value(0)
+	).current;
+
+	const dragY = useRef(
+		new Animated.Value(0)
+	).current;
 
 	// ---------------------------------------------------------
 	// LOAD CARDS
 	// ---------------------------------------------------------
-218
+
 	useEffect(() => {
 		loadCards();
 	}, []);
 
 	const loadCards = async () => {
 		try {
-			const result = await db.getAllAsync<TaskCard>(
-				`
-				SELECT *
-				FROM task_decks
-				WHERE game_id = ?
-				ORDER BY card_number;
-				`,
-				[gameId]
+			const result = await getTaskDeckScreen(
+				gameId
 			);
 
-			const active = result.filter(
+			const active = result.cards.filter(
 				(card) => card.done === 0
 			);
 
-			const used = result.filter(
+			const used = result.cards.filter(
 				(card) => card.done === 1
 			);
 
@@ -130,13 +133,15 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 			setUsedCards(used);
 		} catch (error) {
 			console.error(
-				'Помилка завантаження колоди завдань:',
+				'[TaskDeckScreen] LOAD ERROR:',
 				error
 			);
 
 			Alert.alert(
 				'Помилка',
-				'Не вдалося завантажити колоду завдань'
+				error instanceof Error
+					? error.message
+					: 'Не вдалося завантажити колоду завдань'
 			);
 		} finally {
 			setIsLoading(false);
@@ -160,60 +165,33 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 				'Помилка',
 				'Введіть номер від 1 до 218'
 			);
-			return;
-		}
 
-		const exists = [
-			...activeCards,
-			...usedCards,
-		].some(
-			(card) => card.card_number === num
-		);
-
-		if (exists) {
-			Alert.alert(
-				'Помилка',
-				`Картка №${num} вже додана`
-			);
-
-			setInputNumber('');
 			return;
 		}
 
 		try {
-			const result = await db.runAsync(
-				`
-				INSERT INTO task_decks
-				(game_id, card_number, done)
-				VALUES (?, ?, ?);
-				`,
-				[gameId, num, 0]
-			);
-
-			const newCard: TaskCard = {
-				id: result.lastInsertRowId,
-				game_id: gameId,
-				card_number: num,
-				done: 0,
-			};
+			const newCard =
+				await addTaskCardToDeck(
+					gameId,
+					num
+				);
 
 			setActiveCards((prev) =>
 				[...prev, newCard].sort(
 					(a, b) =>
-						a.card_number - b.card_number
+						a.card_number -
+						b.card_number
 				)
 			);
 
 			setInputNumber('');
 		} catch (error) {
-			console.error(
-				'Помилка додавання картки:',
-				error
-			);
 
 			Alert.alert(
 				'Помилка',
-				'Не вдалося додати картку'
+				error instanceof Error
+					? error.message
+					: 'Не вдалося додати картку'
 			);
 		}
 	};
@@ -226,9 +204,9 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 		card: TaskCard
 	) => {
 		try {
-			await db.runAsync(
-				'DELETE FROM task_decks WHERE id = ?;',
-				[card.id]
+			await removeTaskCardFromDeck(
+				gameId,
+				card.id
 			);
 
 			if (card.done === 0) {
@@ -246,13 +224,15 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 			}
 		} catch (error) {
 			console.error(
-				'Помилка видалення картки:',
+				'[TaskDeckScreen] DELETE ERROR:',
 				error
 			);
 
 			Alert.alert(
 				'Помилка',
-				'Не вдалося видалити картку'
+				error instanceof Error
+					? error.message
+					: 'Не вдалося видалити картку'
 			);
 		}
 	};
@@ -270,14 +250,12 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 		}
 
 		try {
-			await db.runAsync(
-				`
-				UPDATE task_decks
-				SET done = ?
-				WHERE id = ?;
-				`,
-				[newDone, card.id]
-			);
+			const updatedCard =
+				await setTaskCardDone(
+					gameId,
+					card.id,
+					newDone
+				);
 
 			if (newDone === 0) {
 				setUsedCards((prev) =>
@@ -289,10 +267,7 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 				setActiveCards((prev) =>
 					[
 						...prev,
-						{
-							...card,
-							done: 0,
-						},
+						updatedCard,
 					].sort(
 						(a, b) =>
 							a.card_number -
@@ -309,10 +284,7 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 				setUsedCards((prev) =>
 					[
 						...prev,
-						{
-							...card,
-							done: 1,
-						},
+						updatedCard,
 					].sort(
 						(a, b) =>
 							a.card_number -
@@ -322,13 +294,15 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 			}
 		} catch (error) {
 			console.error(
-				'Помилка переміщення картки:',
+				'[TaskDeckScreen] MOVE ERROR:',
 				error
 			);
 
 			Alert.alert(
 				'Помилка',
-				'Не вдалося перемістити картку'
+				error instanceof Error
+					? error.message
+					: 'Не вдалося перемістити картку'
 			);
 		}
 	};
@@ -358,7 +332,6 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 					...zoneLayoutsRef.current,
 					[zone]: layout,
 				};
-
 			}
 		);
 	};
@@ -485,9 +458,7 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 						text: 'Видалити',
 						style: 'destructive',
 						onPress: () => {
-							handleDeleteCard(
-								card
-							);
+							handleDeleteCard(card);
 						},
 					},
 				]
@@ -544,6 +515,7 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 				setScrollEnabled(false);
 
 				measureAllZones();
+
 				measureDragContainer();
 
 				const container =
@@ -562,6 +534,7 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 					50;
 
 				dragX.setValue(localX);
+
 				dragY.setValue(localY);
 			},
 
@@ -588,6 +561,7 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 					50;
 
 				dragX.setValue(localX);
+
 				dragY.setValue(localY);
 
 				const zone =
@@ -607,7 +581,6 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 					pageY,
 				} = evt.nativeEvent;
 
-
 				finishDrag(
 					pageX,
 					pageY
@@ -617,7 +590,9 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 					null;
 
 				setDraggingCard(null);
+
 				setDropZone(null);
+
 				setScrollEnabled(true);
 			},
 
@@ -630,7 +605,9 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 					null;
 
 				setDraggingCard(null);
+
 				setDropZone(null);
+
 				setScrollEnabled(true);
 			},
 		});
@@ -728,22 +705,34 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 				style={zoneStyle}
 				onLayout={() => {
 					// Wait until layout is ready.
-					requestAnimationFrame(() => {
-						measureZone(
-							zoneType,
-							ref
-						);
-					});
+					requestAnimationFrame(
+						() => {
+							measureZone(
+								zoneType,
+								ref
+							);
+						}
+					);
 				}}
 			>
 				<Text style={titleStyle}>
 					{title}
 				</Text>
 
-				<View style={styles.circlesContainer}>
-					{cards.length === 0 && zoneType === 'used' ? (
-						<Text style={styles.emptyUsedText}>
-							Якщо виконали завдання перетягніть його сюди
+				<View
+					style={
+						styles.circlesContainer
+					}
+				>
+					{cards.length === 0 &&
+						zoneType === 'used' ? (
+						<Text
+							style={
+								styles.emptyUsedText
+							}
+						>
+							Якщо виконали завдання
+							перетягніть його сюди
 						</Text>
 					) : (
 						cards.map(renderCircle)
@@ -767,7 +756,9 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 
 		const circleStyle = [
 			styles.circle,
-			isActive ? styles.circleActive : styles.circleUsed,
+			isActive
+				? styles.circleActive
+				: styles.circleUsed,
 		];
 
 		const textStyle = [
@@ -786,21 +777,17 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 					{
 						transform: [
 							{
-								translateX:
-									dragX,
+								translateX: dragX,
 							},
 							{
-								translateY:
-									dragY,
+								translateY: dragY,
 							},
 						],
 					},
 				]}
 			>
 				<Text style={textStyle}>
-					{
-						draggingCard.card_number
-					}
+					{draggingCard.card_number}
 				</Text>
 			</Animated.View>
 		);
@@ -838,9 +825,7 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 	// ---------------------------------------------------------
 
 	return (
-		<View
-			style={styles.screen}
-		>
+		<View style={styles.screen}>
 			<SafeAreaView
 				style={styles.container}
 			>
@@ -894,9 +879,7 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 				>
 					<TextInput
 						style={styles.input}
-						value={
-							inputNumber
-						}
+						value={inputNumber}
 						onChangeText={
 							setInputNumber
 						}
@@ -919,8 +902,6 @@ const TaskDeckScreen = ({ navigation, route }: any) => {
 							color="#fff"
 						/>
 					</TouchableOpacity>
-
-
 				</View>
 
 				{/* CONTENT */}
@@ -1092,7 +1073,6 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 16,
 		paddingVertical: 12,
 		backgroundColor: '#f5f0e8',
-
 	},
 
 	input: {
@@ -1119,7 +1099,7 @@ const styles = StyleSheet.create({
 	},
 
 	trashZone: {
-		width: "100%",
+		width: '100%',
 		height: 120,
 		paddingVertical: 8,
 		alignItems: 'center',
@@ -1156,9 +1136,7 @@ const styles = StyleSheet.create({
 		borderBottomColor: '#004d57',
 	},
 
-	zoneActive: {
-
-	},
+	zoneActive: {},
 
 	zoneUsed: {
 		minHeight: 180,
@@ -1227,11 +1205,13 @@ const styles = StyleSheet.create({
 	},
 
 	// Original circle is hidden while dragging.
+
 	hiddenCircle: {
 		opacity: 0,
 	},
 
 	// Other circles become slightly transparent.
+
 	otherDragging: {
 		opacity: 0.35,
 	},
@@ -1254,9 +1234,7 @@ const styles = StyleSheet.create({
 		position: 'absolute',
 		left: 0,
 		top: 0,
-
 		opacity: 0.95,
-
 		shadowColor: '#000',
 		shadowOffset: {
 			width: 0,
@@ -1264,9 +1242,7 @@ const styles = StyleSheet.create({
 		},
 		shadowOpacity: 0.35,
 		shadowRadius: 8,
-
 		elevation: 20,
-
 		transform: [
 			{
 				scale: 1.08,

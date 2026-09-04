@@ -258,24 +258,22 @@ export async function setCurrentPlayer(
 export async function deleteGame(
 	gameId: number
 ): Promise<void> {
-	await db.withTransactionAsync(async () => {
-		await db.runAsync(
-			`
-      UPDATE games
-      SET current_player_id = NULL
-      WHERE id = ?;
-      `,
-			gameId
-		);
+	await db.runAsync(
+		`
+    UPDATE games
+    SET current_player_id = NULL
+    WHERE id = ?;
+    `,
+		gameId
+	);
 
-		await db.runAsync(
-			`
-      DELETE FROM games
-      WHERE id = ?;
-      `,
-			gameId
-		);
-	});
+	await db.runAsync(
+		`
+    DELETE FROM games
+    WHERE id = ?;
+    `,
+		gameId
+	);
 }
 
 export type SavedGame = {
