@@ -1,4 +1,16 @@
-// ==================== СТАТИЧНІ ТАБЛИЦІ ====================
+// src/models/types.ts
+
+/**
+ * SQLite не має окремого BOOLEAN типу.
+ * Значення boolean зберігаються як:
+ *   0 = false
+ *   1 = true
+ */
+export type SqlBoolean = 0 | 1;
+
+/* ============================================================
+	СТАТИЧНІ ТАБЛИЦІ
+	============================================================ */
 
 export interface CharacterName {
 	id: number;
@@ -13,14 +25,19 @@ export interface AbilityCard {
 export interface Good {
 	id: number;
 	name: string;
-	type: string; 
+	type: string;
 }
 
 export interface EventCard {
 	id: number;
 	name: string;
 	type: string;
-	property_constantly: boolean; 
+
+	/**
+	 * Значення після читання з SQLite:
+	 * 0 або 1.
+	 */
+	property_constantly: SqlBoolean;
 }
 
 export interface ExperienceCard {
@@ -29,17 +46,24 @@ export interface ExperienceCard {
 	character_name_id: number;
 }
 
-// ==================== ЗМІННІ ТАБЛИЦІ ====================
+/* ============================================================
+	ЗМІННІ ТАБЛИЦІ
+	============================================================ */
 
 export interface Game {
 	id: number;
 	game_name: string;
 	game_date: string;
 	number_of_players: number;
-	difficulty_level: number;
+	difficulty_level: 1 | 2;
 	number_of_losses: number;
 	experience: number;
-	win: number;
+	win: SqlBoolean;
+
+	/**
+	 * NULL означає, що поточний гравець ще не призначений.
+	 */
+	current_player_id: number | null;
 }
 
 export interface Player {
@@ -47,17 +71,24 @@ export interface Player {
 	game_id: number;
 	name: string;
 	team_tokens: number;
+
 	ability_card_id_1: number | null;
 	ability_card_id_2: number | null;
 	ability_card_id_3: number | null;
-	captain: number;
 }
 
 export interface Character {
 	id: number;
 	game_id: number;
-	player_id: number;
+
+	/**
+	 * NULL тільки для Капітана Софі Одеси
+	 * (character_name_id = 1).
+	 */
+	player_id: number | null;
+
 	character_name_id: number;
+
 	damage: number;
 	fatigue: number;
 	fright: number;
@@ -65,8 +96,10 @@ export interface Character {
 	poisoning: number;
 	weakness: number;
 	low_morale: number;
-	ability_card_id_1: number | null;   
-	ability_card_id_2: number | null;   
+
+	ability_card_id_1: number | null;
+	ability_card_id_2: number | null;
+
 	experience_card_id_1: number | null;
 	experience_card_id_2: number | null;
 	experience_card_id_3: number | null;
@@ -75,15 +108,19 @@ export interface Character {
 export interface Ship {
 	id: number;
 	game_id: number;
+
 	hull: number;
 	deck: number;
 	hospital: number;
 	caboose: number;
 	cabin: number;
 	bridge: number;
+
 	last_action: number;
 	page: number;
+
 	location: string;
+
 	meat: number;
 	vegetables: number;
 	grain: number;
@@ -96,14 +133,14 @@ export interface ChestGood {
 	id: number;
 	game_id: number;
 	goods_id: number;
-	activated: boolean;  
+	activated: SqlBoolean;
 }
 
 export interface EventDeck {
 	id: number;
 	game_id: number;
 	event_card_id: number;
-	remains_in_game: number; 
+	remains_in_game: SqlBoolean;
 	order_number: number;
 }
 
@@ -111,16 +148,15 @@ export interface TaskDeck {
 	id: number;
 	game_id: number;
 	card_number: number;
-	done: number; 
+	done: SqlBoolean;
 }
 
 export interface AdventureDeck {
 	id: number;
 	game_id: number;
 	card_number: number;
-	name: string;        
-	type: string;        
-	totem: boolean; 
-	activated: boolean;     
+	name: string;
+	type: string;
+	totem: SqlBoolean;
+	activated: SqlBoolean;
 }
-

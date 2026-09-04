@@ -57,8 +57,6 @@ type Player = {
 	ability_card_id_1: number | null;
 	ability_card_id_2: number | null;
 	ability_card_id_3: number | null;
-
-	captain: number;
 };
 
 // =====================================================
@@ -122,8 +120,7 @@ const EditPlayersScreen = ({ navigation, route }: any) => {
 						team_tokens,
 						ability_card_id_1,
 						ability_card_id_2,
-						ability_card_id_3,
-						captain
+						ability_card_id_3
 					FROM players
 					WHERE game_id = ?
 					ORDER BY id;`,
@@ -193,13 +190,15 @@ const EditPlayersScreen = ({ navigation, route }: any) => {
 		}
 
 		const newPlayer: Player = {
-			id: -1,
+			// Тимчасовий ID потрібен, поки гравець ще не вставлений у БД.
+			// Він має бути унікальним, щоб кільком новим гравцям можна було
+			// незалежно призначати персонажів до натискання «Зберегти».
+			id: Math.min(0, ...players.map((player) => player.id)) - 1,
 			name: '',
 			team_tokens: 0,
 			ability_card_id_1: null,
 			ability_card_id_2: null,
 			ability_card_id_3: null,
-			captain: 0,
 		};
 
 		setPlayers([
@@ -464,155 +463,104 @@ const EditPlayersScreen = ({ navigation, route }: any) => {
 		// =================================================
 
 		try {
-			// -------------------------------------------------
-			// DELETE OLD PLAYERS
-			// -------------------------------------------------
+			await db.withTransactionAsync(async () => {
+				const game = await db.getFirstAsync<{ current_player_id: number | null }>(
+					'SELECT current_player_id FROM games WHERE id = ?;',
+					[gameId]
+				);
+				if (!game) {
+					throw new Error('Гру не знайдено.');
+				}
 
-			await db.runAsync(
-				'DELETE FROM players WHERE game_id = ?;',
-				[gameId]
-			);
+				const savedPlayers = await db.getAllAsync<{ id: number }>(
+					'SELECT id FROM players WHERE game_id = ?;',
+					[gameId]
+				);
+				const savedPlayerIds = new Set(savedPlayers.map((player) => player.id));
+				const playerIdMap = new Map<number, number>();
 
-			// -------------------------------------------------
-			// DELETE OLD CHARACTERS
-			// -------------------------------------------------
+				// Наявні гравці зберігають свої ID; нові отримують ID від SQLite.
+				for (const player of players) {
+					if (player.id > 0) {
+						await db.runAsync(
+							`UPDATE players
+							 SET name = ?, team_tokens = ?, ability_card_id_1 = ?,
+							     ability_card_id_2 = ?, ability_card_id_3 = ?
+							 WHERE id = ? AND game_id = ?;`,
+							[
+								player.name.trim(),
+								player.team_tokens,
+								player.ability_card_id_1,
+								player.ability_card_id_2,
+								player.ability_card_id_3,
+								player.id,
+								gameId,
+							]
+						);
+						playerIdMap.set(player.id, player.id);
+						continue;
+					}
 
-			await db.runAsync(
-				'DELETE FROM characters WHERE game_id = ? AND player_id != 0;',
-				[gameId]
-			);
-
-			// -------------------------------------------------
-			// OLD PLAYER ID -> NEW PLAYER ID
-			// -------------------------------------------------
-
-			const oldToNewId: {
-				[key: number]: number;
-			} = {};
-
-			// -------------------------------------------------
-			// INSERT PLAYERS
-			// -------------------------------------------------
-
-			for (const player of players) {
-				const result =
-					await db.runAsync(
+					const result = await db.runAsync(
 						`INSERT INTO players
-						(
-							game_id,
-							name,
-							team_tokens,
-							ability_card_id_1,
-							ability_card_id_2,
-							ability_card_id_3,
-							captain
-						)
-						VALUES (?, ?, ?, ?, ?, ?, ?);`,
+							(game_id, name, team_tokens, ability_card_id_1, ability_card_id_2, ability_card_id_3)
+						 VALUES (?, ?, ?, ?, ?, ?);`,
 						[
 							gameId,
 							player.name.trim(),
-							player.team_tokens ||
-								0,
-							player.ability_card_id_1 ||
-								null,
-							player.ability_card_id_2 ||
-								null,
-							player.ability_card_id_3 ||
-								null,
-							player.captain ||
-								0,
+							player.team_tokens,
+							player.ability_card_id_1,
+							player.ability_card_id_2,
+							player.ability_card_id_3,
 						]
 					);
-
-				oldToNewId[player.id] =
-					result.lastInsertRowId;
-			}
-
-			// -------------------------------------------------
-			// INSERT CHARACTERS
-			// -------------------------------------------------
-
-			for (const char of characters) {
-				const newPlayerId =
-					oldToNewId[
-						char.player_id!
-					];
-
-				if (
-					newPlayerId ===
-					undefined
-				) {
-					console.error(
-						'Не знайдено новий player_id для',
-						char.player_id
-					);
-
-					continue;
+					playerIdMap.set(player.id, result.lastInsertRowId);
 				}
 
+				// Перепризначення не створює персонажів заново: їхній стан і картки зберігаються.
+				for (const char of characters) {
+					if (char.player_id === null) {
+						throw new Error(`Персонаж ${char.character_name_id} не має гравця.`);
+					}
+
+					const playerId = playerIdMap.get(char.player_id);
+					if (playerId === undefined) {
+						throw new Error(`Не знайдено гравця для персонажа ${char.character_name_id}.`);
+					}
+
+					await db.runAsync(
+						'UPDATE characters SET player_id = ? WHERE id = ? AND game_id = ?;',
+						[playerId, char.id, gameId]
+					);
+				}
+
+				const finalPlayerIds = players.map((player) => {
+					const playerId = playerIdMap.get(player.id);
+					if (playerId === undefined) {
+						throw new Error('Не вдалося визначити ID гравця.');
+					}
+					return playerId;
+				});
+				const nextCurrentPlayerId: number = finalPlayerIds.includes(game.current_player_id ?? -1)
+					? game.current_player_id!
+					: finalPlayerIds[0];
+
+				// Спершу переносимо хід, а вже потім видаляємо попереднього гравця.
 				await db.runAsync(
-					`INSERT INTO characters
-					(
-						game_id,
-						player_id,
-						character_name_id,
-						damage,
-						fatigue,
-						fright,
-						madness,
-						poisoning,
-						weakness,
-						low_morale,
-						ability_card_id_1,
-						ability_card_id_2,
-						experience_card_id_1,
-						experience_card_id_2,
-						experience_card_id_3
-					)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-					[
-						gameId,
-						newPlayerId,
-						char.character_name_id,
-
-						char.damage ||
-							0,
-
-						char.fatigue ||
-							0,
-
-						char.fright ||
-							0,
-
-						char.madness ||
-							0,
-
-						char.poisoning ||
-							0,
-
-						char.weakness ||
-							0,
-
-						char.low_morale ||
-							0,
-
-						char.ability_card_id_1 ||
-							null,
-
-						char.ability_card_id_2 ||
-							null,
-
-						char.experience_card_id_1 ||
-							null,
-
-						char.experience_card_id_2 ||
-							null,
-
-						char.experience_card_id_3 ||
-							null,
-					]
+					'UPDATE games SET number_of_players = ?, current_player_id = ? WHERE id = ?;',
+					[players.length, nextCurrentPlayerId, gameId]
 				);
-			}
+
+				const finalPlayerIdSet = new Set(finalPlayerIds);
+				for (const savedPlayerId of savedPlayerIds) {
+					if (!finalPlayerIdSet.has(savedPlayerId)) {
+						await db.runAsync(
+							'DELETE FROM players WHERE id = ? AND game_id = ?;',
+							[savedPlayerId, gameId]
+						);
+					}
+				}
+			});
 
 			// -------------------------------------------------
 			// SUCCESS

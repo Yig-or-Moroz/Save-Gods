@@ -31,12 +31,12 @@ type GameData = {
 	experience: number;
 	number_of_losses: number;
 	win: number;
+	current_player_id: number | null;
 };
 
 type Player = {
 	id: number;
 	name: string;
-	captain: number;
 };
 
 type ShipData = {
@@ -94,7 +94,7 @@ type UnifiedGood = {
 type CharacterData = {
 	id: number;
 	game_id: number;
-	player_id: number;
+	player_id: number | null;
 	character_name_id: number;
 	damage: number;
 	fatigue: number;
@@ -207,7 +207,9 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 		try {
 			// 1. Гра
 			const gameResult = await db.getAllAsync<GameData>(
-				'SELECT id, game_name, number_of_players, difficulty_level, experience, number_of_losses, win FROM games WHERE id = ?;',
+				`SELECT id, game_name, number_of_players, difficulty_level,
+					experience, number_of_losses, win, current_player_id
+				 FROM games WHERE id = ?;`,
 				[gameId]
 			);
 			if (gameResult.length === 0) {
@@ -218,9 +220,9 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 			const gameData = gameResult[0];
 			setGame(gameData);
 
-			// 2. Гравці (з captain)
+			// 2. Гравці. Поточний гравець зберігається в games.current_player_id.
 			const playersResult = await db.getAllAsync<Player>(
-				'SELECT id, name, captain FROM players WHERE game_id = ? ORDER BY id;',
+				'SELECT id, name FROM players WHERE game_id = ? ORDER BY id;',
 				[gameId]
 			);
 			setPlayers(playersResult);
@@ -445,7 +447,7 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 			title: p.name,
 			type: 'player' as const,
 			playerId: p.id,
-			isCaptain: p.captain === 1,
+			isCaptain: p.id === game.current_player_id,
 		})),
 		{ id: 'events', title: 'Колода подій', type: 'events' },
 		{ id: 'tasks', title: 'Колода завдань', type: 'tasks' },

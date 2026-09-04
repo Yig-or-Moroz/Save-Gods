@@ -14,11 +14,16 @@ import {
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { db } from '../database';
-
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 import AbilitySelector from '../components/AbilitySelector';
+
+import {
+	getAdventureDeckScreen,
+	addAdventureCard,
+	deleteAdventureCard,
+	setAdventureCardActivated,
+} from '../services/gameService';
 
 type AdventureCard = {
 	id: number;
@@ -97,12 +102,9 @@ const AdventureDeckScreen = ({ navigation, route }: any) => {
 	const loadCards = async () => {
 		try {
 			const result =
-				await db.getAllAsync<AdventureCard>(
-					'SELECT * FROM adventure_decks WHERE game_id = ? ORDER BY card_number;',
-					[gameId]
-				);
+				await getAdventureDeckScreen(gameId);
 
-			setCards(result);
+			setCards(result.cards);
 		} catch (error) {
 			console.error(
 				'Помилка завантаження колоди пригод:',
@@ -133,6 +135,7 @@ const AdventureDeckScreen = ({ navigation, route }: any) => {
 				'Помилка',
 				'Введіть номер картки'
 			);
+
 			return;
 		}
 
@@ -141,29 +144,17 @@ const AdventureDeckScreen = ({ navigation, route }: any) => {
 				'Помилка',
 				'Введіть назву картки'
 			);
+
 			return;
 		}
 
 		try {
-			await db.runAsync(
-				`INSERT INTO adventure_decks
-				(
-					game_id,
-					card_number,
-					name,
-					type,
-					totem,
-					activated
-				)
-				VALUES (?, ?, ?, ?, ?, ?);`,
-				[
-					gameId,
-					num,
-					cardName.trim(),
-					cardType,
-					totem ? 1 : 0,
-					0,
-				]
+			await addAdventureCard(
+				gameId,
+				num,
+				cardName.trim(),
+				cardType,
+				totem
 			);
 
 			// Очищаємо форму
@@ -211,9 +202,9 @@ const AdventureDeckScreen = ({ navigation, route }: any) => {
 
 					onPress: async () => {
 						try {
-							await db.runAsync(
-								'DELETE FROM adventure_decks WHERE id = ?;',
-								[cardId]
+							await deleteAdventureCard(
+								gameId,
+								cardId
 							);
 
 							await loadCards();
@@ -244,25 +235,24 @@ const AdventureDeckScreen = ({ navigation, route }: any) => {
 	) => {
 		const newValue =
 			currentActivated === 1
-				? 0
-				: 1;
+				? false
+				: true;
 
 		try {
-			await db.runAsync(
-				'UPDATE adventure_decks SET activated = ? WHERE id = ?;',
-				[
-					newValue,
+			const activated =
+				await setAdventureCardActivated(
+					gameId,
 					cardId,
-				]
-			);
+					newValue
+				);
 
 			setCards((prevCards) =>
 				prevCards.map((card) =>
 					card.id === cardId
 						? {
-								...card,
-								activated: newValue,
-						  }
+							...card,
+							activated: activated ? 1 : 0,
+						}
 						: card
 				)
 			);
@@ -289,7 +279,6 @@ const AdventureDeckScreen = ({ navigation, route }: any) => {
 		item: AdventureCard;
 	}) => (
 		<View style={styles.cardItem}>
-
 			<Text style={styles.cardNumber}>
 				{item.card_number}
 			</Text>
@@ -313,7 +302,7 @@ const AdventureDeckScreen = ({ navigation, route }: any) => {
 				style={[
 					styles.activateBox,
 					item.activated === 1 &&
-						styles.activateBoxActive,
+					styles.activateBoxActive,
 				]}
 				onPress={() =>
 					toggleActivated(
@@ -332,7 +321,7 @@ const AdventureDeckScreen = ({ navigation, route }: any) => {
 					style={[
 						styles.activateText,
 						item.activated === 1 &&
-							styles.activateTextActive,
+						styles.activateTextActive,
 					]}
 				>
 					А
@@ -356,7 +345,6 @@ const AdventureDeckScreen = ({ navigation, route }: any) => {
 					color="#691716"
 				/>
 			</TouchableOpacity>
-
 		</View>
 	);
 
@@ -452,60 +440,48 @@ const AdventureDeckScreen = ({ navigation, route }: any) => {
 					{/* Номер */}
 
 					<View style={styles.field}>
-
 						<Text style={styles.label}>
 							Номер картки
 						</Text>
 
 						<TextInput
-							style={
-								styles.input
-							}
-							value={
-								cardNumber
-							}
+							style={styles.input}
+							value={cardNumber}
 							onChangeText={
 								setCardNumber
 							}
 							keyboardType="numeric"
 							placeholder="Введіть номер"
 						/>
-
 					</View>
 
 					{/* Назва */}
 
 					<View style={styles.field}>
-
 						<Text style={styles.label}>
 							Назва картки
 						</Text>
 
 						<TextInput
-							style={
-								styles.input
-							}
+							style={styles.input}
 							value={cardName}
 							onChangeText={
 								setCardName
 							}
 							placeholder="Введіть назву"
 						/>
-
 					</View>
 
 					{/* Тип */}
 
 					<View style={styles.field}>
-
 						<Text style={styles.label}>
 							Тип картки
 						</Text>
 
 						<AbilitySelector
 							value={
-								cardType ===
-								'-'
+								cardType === '-'
 									? null
 									: cardType
 							}
@@ -516,8 +492,7 @@ const AdventureDeckScreen = ({ navigation, route }: any) => {
 								value
 							) => {
 								if (
-									value ===
-									null
+									value === null
 								) {
 									setCardType(
 										'-'
@@ -531,13 +506,11 @@ const AdventureDeckScreen = ({ navigation, route }: any) => {
 							placeholder="-"
 							title="Оберіть тип картки"
 						/>
-
 					</View>
 
 					{/* Тотем */}
 
 					<View style={styles.field}>
-
 						<Text style={styles.label}>
 							🐾Тотем:
 						</Text>
@@ -547,26 +520,21 @@ const AdventureDeckScreen = ({ navigation, route }: any) => {
 								styles.radioGroup
 							}
 						>
-
 							<TouchableOpacity
 								style={[
 									styles.radioButton,
-									totem ===
-										true &&
-										styles.radioSelected,
+									totem === true &&
+									styles.radioSelected,
 								]}
 								onPress={() =>
-									setTotem(
-										true
-									)
+									setTotem(true)
 								}
 							>
 								<Text
 									style={[
 										styles.radioText,
-										totem ===
-											true &&
-											styles.radioTextSelected,
+										totem === true &&
+										styles.radioTextSelected,
 									]}
 								>
 									Так
@@ -576,30 +544,24 @@ const AdventureDeckScreen = ({ navigation, route }: any) => {
 							<TouchableOpacity
 								style={[
 									styles.radioButton,
-									totem ===
-										false &&
-										styles.radioSelected,
+									totem === false &&
+									styles.radioSelected,
 								]}
 								onPress={() =>
-									setTotem(
-										false
-									)
+									setTotem(false)
 								}
 							>
 								<Text
 									style={[
 										styles.radioText,
-										totem ===
-											false &&
-											styles.radioTextSelected,
+										totem === false &&
+										styles.radioTextSelected,
 									]}
 								>
 									Ні
 								</Text>
 							</TouchableOpacity>
-
 						</View>
-
 					</View>
 
 					{/* Add */}
@@ -766,7 +728,6 @@ const styles = StyleSheet.create({
 		borderRadius: 12,
 		padding: 16,
 		marginBottom: 20,
-
 		shadowColor: '#000',
 		shadowOpacity: 0.05,
 		shadowRadius: 4,
@@ -852,15 +813,10 @@ const styles = StyleSheet.create({
 	cardItem: {
 		flexDirection: 'row',
 		alignItems: 'center',
-
 		backgroundColor: '#fff',
-
 		borderRadius: 8,
-
 		padding: 12,
-
 		marginBottom: 8,
-
 		shadowColor: '#000',
 		shadowOpacity: 0.05,
 		shadowRadius: 2,
@@ -890,16 +846,12 @@ const styles = StyleSheet.create({
 	activateBox: {
 		width: 28,
 		height: 28,
-
 		borderRadius: 4,
 		borderWidth: 2,
 		borderColor: '#004d57',
-
 		backgroundColor: '#fff',
-
 		alignItems: 'center',
 		justifyContent: 'center',
-
 		marginRight: 8,
 	},
 
@@ -931,17 +883,12 @@ const styles = StyleSheet.create({
 
 	footer: {
 		height: 60,
-
 		flexDirection: 'row',
-
 		justifyContent: 'flex-start',
 		alignItems: 'center',
-
 		paddingHorizontal: 16,
 		paddingVertical: 8,
-
 		gap: 4,
-
 		borderTopWidth: 1,
 		borderTopColor: '#004d57',
 	},
@@ -955,20 +902,13 @@ const styles = StyleSheet.create({
 	subHeaderTextA: {
 		width: 26,
 		height: 26,
-
 		textAlign: 'center',
-
 		borderRadius: 4,
-
 		backgroundColor: '#004d57',
-
 		fontSize: 22,
-
 		fontFamily: 'Kyiv-Machine',
-
 		color: '#fff',
 	},
 });
 
 export default AdventureDeckScreen;
-

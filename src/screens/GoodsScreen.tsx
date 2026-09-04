@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+
 import {
 	View,
 	Text,
@@ -9,8 +10,15 @@ import {
 	ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { db } from '../database';
 import Ionicons from '@expo/vector-icons/Ionicons';
+
+import {
+	getGoodsScreen,
+	addGoodToChest,
+	removeGoodFromChest,
+	setGoodActivated,
+	type ChestState,
+} from '../services/gameService';
 
 type Good = {
 	id: number;
@@ -18,22 +26,9 @@ type Good = {
 	type: string;
 };
 
-type ChestGood = {
-	id: number;
-	game_id: number;
-	goods_id: number;
-	activated: number;
-};
-
-type ChestState = {
-	[goodsId: number]: {
-		added: boolean;
-		activated: boolean;
-	};
-};
-
 const GoodsScreen = ({ navigation, route }: any) => {
 	const { gameId } = route.params;
+
 	const [goods, setGoods] = useState<Good[]>([]);
 	const [chestState, setChestState] = useState<ChestState>({});
 	const [isLoading, setIsLoading] = useState(true);
@@ -44,47 +39,10 @@ const GoodsScreen = ({ navigation, route }: any) => {
 
 	const loadData = async () => {
 		try {
-			const goodsResult = await db.getAllAsync<Good>(
-				'SELECT * FROM goods ORDER BY name;'
-			);
-			setGoods(goodsResult);
+			const result = await getGoodsScreen(gameId);
 
-			const chestResult = await db.getAllAsync<ChestGood>(
-				'SELECT goods_id, activated FROM chest_goods WHERE game_id = ?;',
-				[gameId]
-			);
-
-			const initialChestState: ChestState = {};
-			chestResult.forEach((item) => {
-				initialChestState[item.goods_id] = {
-					added: true,
-					activated: item.activated === 1,
-				};
-			});
-
-			const starterGoods = goodsResult.filter((g) => g.type === 'Стартова');
-			let updatedChestState = { ...initialChestState };
-			let addedCount = 0;
-
-			for (const good of starterGoods) {
-				if (!updatedChestState[good.id]) {
-					await db.runAsync(
-						'INSERT INTO chest_goods (game_id, goods_id, activated) VALUES (?, ?, ?);',
-						[gameId, good.id, 0]
-					);
-					updatedChestState[good.id] = {
-						added: true,
-						activated: false,
-					};
-					addedCount++;
-				}
-			}
-
-			if (addedCount > 0) {
-				console.log(`✅ Додано ${addedCount} стартових товарів до скрині`);
-			}
-
-			setChestState(updatedChestState);
+			setGoods(result.goods);
+			setChestState(result.chestState);
 		} catch (error) {
 			console.error('Помилка завантаження майна:', error);
 			Alert.alert('Помилка', 'Не вдалося завантажити майно');
@@ -95,8 +53,12 @@ const GoodsScreen = ({ navigation, route }: any) => {
 
 	const toggleAdd = async (goodId: number) => {
 		const good = goods.find((g) => g.id === goodId);
+
 		if (!good || good.type === 'Стартова') {
-			Alert.alert('Увага', 'Стартове майно завжди додане до скрині');
+			Alert.alert(
+				'Увага',
+				'Стартове майно завжди додане до скрині'
+			);
 			return;
 		}
 
@@ -105,23 +67,22 @@ const GoodsScreen = ({ navigation, route }: any) => {
 
 		try {
 			if (isAdded) {
-				await db.runAsync(
-					'DELETE FROM chest_goods WHERE game_id = ? AND goods_id = ?;',
-					[gameId, goodId]
-				);
+				await removeGoodFromChest(gameId, goodId);
+
 				setChestState((prev) => {
 					const newState = { ...prev };
 					delete newState[goodId];
 					return newState;
 				});
 			} else {
-				await db.runAsync(
-					'INSERT INTO chest_goods (game_id, goods_id, activated) VALUES (?, ?, ?);',
-					[gameId, goodId, 0]
+				const newState = await addGoodToChest(
+					gameId,
+					goodId
 				);
+
 				setChestState((prev) => ({
 					...prev,
-					[goodId]: { added: true, activated: false },
+					[goodId]: newState,
 				}));
 			}
 		} catch (error) {
@@ -132,24 +93,40 @@ const GoodsScreen = ({ navigation, route }: any) => {
 
 	const toggleActivated = async (goodId: number) => {
 		const current = chestState[goodId];
+
 		if (!current || !current.added) {
-			Alert.alert('Увага', 'Спочатку додайте товар до скрині');
+			Alert.alert(
+				'Увага',
+				'Спочатку додайте товар до скрині'
+			);
 			return;
 		}
 
 		const newActivated = !current.activated;
+
 		try {
-			await db.runAsync(
-				'UPDATE chest_goods SET activated = ? WHERE game_id = ? AND goods_id = ?;',
-				[newActivated ? 1 : 0, gameId, goodId]
+			const activated = await setGoodActivated(
+				gameId,
+				goodId,
+				newActivated
 			);
+
 			setChestState((prev) => ({
 				...prev,
-				[goodId]: { ...prev[goodId], activated: newActivated },
+				[goodId]: {
+					...prev[goodId],
+					activated,
+				},
 			}));
 		} catch (error) {
-			console.error('Помилка активації майна:', error);
-			Alert.alert('Помилка', 'Не вдалося змінити стан активації');
+			console.error(
+				'Помилка активації майна:',
+				error
+			);
+			Alert.alert(
+				'Помилка',
+				'Не вдалося змінити стан активації'
+			);
 		}
 	};
 
@@ -159,35 +136,41 @@ const GoodsScreen = ({ navigation, route }: any) => {
 		const isActivated = state?.activated || false;
 		const isStarter = item.type === 'Стартова';
 
-		// Стиль рядка
 		const rowStyle = [
 			styles.goodRow,
 			isAdded ? styles.goodRowAdded : null,
 			isStarter ? styles.starterRow : null,
 		];
 
-		// Стиль назви
 		const nameStyle = [
 			styles.goodName,
 			isAdded ? styles.goodNameAdded : null,
 			isStarter ? styles.starterText : null,
 		];
 
-		// Стиль лівої галочки
 		const checkStyle = [
 			styles.checkbox,
 			isAdded ? styles.checkboxChecked : null,
 			isStarter ? styles.checkboxStarter : null,
 		];
 
-		// Стиль правої кнопки "А"
 		let activateStyle;
+
 		if (!isAdded) {
-			activateStyle = [styles.activateBox, styles.activateBoxDisabled];
+			activateStyle = [
+				styles.activateBox,
+				styles.activateBoxDisabled,
+			];
 		} else if (isActivated) {
-			activateStyle = [styles.activateBox, styles.activateBoxActive];
+			activateStyle = [
+				styles.activateBox,
+				styles.activateBoxActive,
+			];
 		} else {
-			activateStyle = [styles.activateBox, styles.activateBoxVisible];
+			activateStyle = [
+				styles.activateBox,
+				styles.activateBoxVisible,
+			];
 		}
 
 		const activateTextStyle = [
@@ -203,19 +186,24 @@ const GoodsScreen = ({ navigation, route }: any) => {
 				activeOpacity={0.7}
 				disabled={isStarter}
 			>
-				{/* Ліва галочка */}
 				<View style={checkStyle}>
-					{isAdded && <Text style={styles.checkmark}>✓</Text>}
+					{isAdded && (
+						<Text style={styles.checkmark}>✓</Text>
+					)}
 				</View>
 
 				<Text style={nameStyle}>{item.name}</Text>
 
-				{/* Права кнопка "А" */}
 				<TouchableOpacity
 					style={activateStyle}
 					onPress={() => toggleActivated(item.id)}
 					disabled={!isAdded}
-					hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+					hitSlop={{
+						top: 16,
+						bottom: 16,
+						left: 16,
+						right: 16,
+					}}
 				>
 					<Text style={activateTextStyle}>А</Text>
 				</TouchableOpacity>
@@ -226,8 +214,14 @@ const GoodsScreen = ({ navigation, route }: any) => {
 	if (isLoading) {
 		return (
 			<SafeAreaView style={styles.loadingContainer}>
-				<ActivityIndicator size="large" color="#004d57" />
-				<Text style={styles.loadingText}>Завантаження майна...</Text>
+				<ActivityIndicator
+					size="large"
+					color="#004d57"
+				/>
+
+				<Text style={styles.loadingText}>
+					Завантаження майна...
+				</Text>
 			</SafeAreaView>
 		);
 	}
@@ -236,14 +230,21 @@ const GoodsScreen = ({ navigation, route }: any) => {
 		<SafeAreaView style={styles.container}>
 			<View style={styles.headerWrapper}>
 				<View style={styles.backButtonWrapper}>
-					<TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-						<Ionicons name="arrow-back" size={22} color="#004d57" />
+					<TouchableOpacity
+						onPress={() => navigation.goBack()}
+						style={styles.backButton}
+					>
+						<Ionicons
+							name="arrow-back"
+							size={22}
+							color="#004d57"
+						/>
 					</TouchableOpacity>
 				</View>
+
 				<View style={styles.titleWrapper}>
 					<Text style={styles.header}>Майно</Text>
 				</View>
-
 			</View>
 
 			<FlatList
@@ -252,12 +253,18 @@ const GoodsScreen = ({ navigation, route }: any) => {
 				renderItem={renderItem}
 				contentContainerStyle={styles.listContent}
 				ListEmptyComponent={
-					<Text style={styles.emptyText}>Немає товарів</Text>
+					<Text style={styles.emptyText}>
+						Немає товарів
+					</Text>
 				}
 			/>
+
 			<View style={styles.footer}>
 				<Text style={styles.subHeaderTextA}>А</Text>
-				<Text style={styles.subHeaderText}>- картку активовано</Text>
+
+				<Text style={styles.subHeaderText}>
+					- картку активовано
+				</Text>
 			</View>
 		</SafeAreaView>
 	);
