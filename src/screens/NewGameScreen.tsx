@@ -14,8 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
-import { getAllCharacterNames } from '../repositories/characterRepository';
-import { createGame } from '../services/gameService';
+import { createGame, getNewGameScreen } from '../services/gameService';
 
 type Character = {
 	id: number;
@@ -40,12 +39,11 @@ const NewGameScreen = ({ navigation }: any) => {
 	useEffect(() => {
 		const loadData = async () => {
 			try {
-				const data = await getAllCharacterNames();
+				const data = await getNewGameScreen();
+				const characters = data.characters;
 
-				// Капітан Софі Одеса не обирається гравцями.
-				const filtered = data.filter((c) => c.id !== 1);
-
-				setAllCharacters(filtered);
+				// Капітан Софі Одеса вже відфільтрована у service.
+				setAllCharacters(characters);
 
 				const initialPlayers: Player[] = Array.from(
 					{ length: playerCount },
@@ -59,7 +57,7 @@ const NewGameScreen = ({ navigation }: any) => {
 				// При одному гравцеві всі 8 звичайних персонажів
 				// автоматично належать йому.
 				if (playerCount === 1) {
-					initialPlayers[0].selectedCharacterIds = filtered.map(
+					initialPlayers[0].selectedCharacterIds = characters.map(
 						(character) => character.id,
 					);
 				}

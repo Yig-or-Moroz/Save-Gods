@@ -68,6 +68,20 @@ export const getShip = async (
 	);
 };
 
+export const createShip = async (
+	gameId: number
+): Promise<number> => {
+	const result = await db.runAsync(
+		`
+      INSERT INTO ships (game_id)
+      VALUES (?);
+    `,
+		[gameId]
+	);
+
+	return result.lastInsertRowId;
+};
+
 export const updateShip = async (
 	gameId: number,
 	input: ShipUpdate

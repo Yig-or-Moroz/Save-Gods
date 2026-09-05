@@ -30,9 +30,13 @@ export default function App() {
 				await loadFonts();
 				await initDatabase();
 				setAppIsReady(true);
-			} catch (err: any) {
+			} catch (err: unknown) {
 				console.error('❌ Помилка підготовки:', err);
-				setError(err.message);
+				setError(
+					err instanceof Error
+						? err.message
+						: 'Невідома помилка під час запуску застосунку.'
+				);
 			}
 		}
 		prepare();

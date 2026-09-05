@@ -36,23 +36,7 @@ import {
 } from '../models/types';
 
 import {
-	getAbilityCards,
-} from '../repositories/abilityCardRepository';
-
-import {
-	requirePlayer,
-} from '../repositories/playerRepository';
-
-import {
-	requireGame,
-} from '../repositories/gameRepository';
-
-import {
-	getCharactersForPlayer,
-	getExperienceCardsForCharacterNames,
-} from '../repositories/characterRepository';
-
-import {
+	getPlayerScreen,
 	savePlayerScreen,
 } from '../services/gameService';
 
@@ -164,331 +148,61 @@ const PlayerScreen = ({
 	// =====================================================
 
 	useEffect(() => {
-		isMountedRef.current =
-			true;
-
-		console.log(
-			'[PlayerScreen] MOUNT',
-			{
-				gameId,
-				playerId,
-				playerName,
-			}
-		);
-
+		isMountedRef.current = true;
 		let cancelled = false;
 
-		const load =
-			async () => {
-				console.log(
-					'[PlayerScreen] loadData START'
+		const load = async () => {
+			try {
+				const data = await getPlayerScreen(gameId, playerId);
+
+				if (cancelled || !isMountedRef.current) return;
+
+				setPlayer(data.player);
+				setTeamTokens(
+					data.player.team_tokens === 0
+						? ''
+						: data.player.team_tokens.toString()
 				);
-
-				try {
-					// -------------------------------------------------
-					// PLAYER
-					// -------------------------------------------------
-
-					const playerData =
-						await requirePlayer(
-							gameId,
-							playerId
-						);
-
-					if (
-						cancelled ||
-						!isMountedRef.current
-					) {
-						console.log(
-							'[PlayerScreen] load cancelled after player query'
-						);
-						return;
-					}
-
-					console.log(
-						'[PlayerScreen] player loaded'
-					);
-
-					setPlayer(
-						playerData
-					);
-
-					setTeamTokens(
-						playerData.team_tokens ===
-							0
-							? ''
-							: playerData.team_tokens.toString()
-					);
-
-					setAbility1(
-						playerData.ability_card_id_1
-					);
-
-					setAbility2(
-						playerData.ability_card_id_2
-					);
-
-					setAbility3(
-						playerData.ability_card_id_3
-					);
-
-					// -------------------------------------------------
-					// GAME / CURRENT PLAYER
-					// -------------------------------------------------
-
-					const game =
-						await requireGame(
-							gameId
-						);
-
-					if (
-						cancelled ||
-						!isMountedRef.current
-					) {
-						return;
-					}
-
-					currentPlayerIdRef.current =
-						game.current_player_id;
-
-					setCaptain(
-						game.current_player_id ===
-						playerId
-					);
-
-					// -------------------------------------------------
-					// ABILITY CARDS
-					// -------------------------------------------------
-
-					console.log(
-						'[PlayerScreen] loading ability cards'
-					);
-
-					const abilityResult =
-						await getAbilityCards();
-
-					if (
-						cancelled ||
-						!isMountedRef.current
-					) {
-						console.log(
-							'[PlayerScreen] load cancelled after ability cards'
-						);
-						return;
-					}
-
-					console.log(
-						'[PlayerScreen] ability cards loaded:',
-						abilityResult.length
-					);
-
-					setAbilityCards(
-						abilityResult
-					);
-
-					// -------------------------------------------------
-					// CHARACTERS
-					// -------------------------------------------------
-
-					console.log(
-						'[PlayerScreen] loading characters'
-					);
-
-					const charsResult =
-						await getCharactersForPlayer(
-							gameId,
-							playerId
-						);
-
-					if (
-						cancelled ||
-						!isMountedRef.current
-					) {
-						console.log(
-							'[PlayerScreen] load cancelled after characters'
-						);
-						return;
-					}
-
-					console.log(
-						'[PlayerScreen] characters loaded:',
-						charsResult.length
-					);
-
-					const characterNameIds =
-						charsResult.map(
-							(character) =>
-								character.character_name_id
-						);
-
-					const experienceCardsByCharacter =
-						await getExperienceCardsForCharacterNames(
-							characterNameIds
-						);
-
-					if (
-						cancelled ||
-						!isMountedRef.current
-					) {
-						return;
-					}
-
-					const experienceCardsMap =
-						new Map<
-							number,
-							ExperienceCard[]
-						>();
-
-					for (
-						const characterNameId of
-						characterNameIds
-					) {
-						experienceCardsMap.set(
-							characterNameId,
-							experienceCardsByCharacter.filter(
-								(card) =>
-									card.character_name_id ===
-									characterNameId
-							)
-						);
-					}
-
-					const charsWithCards:
-						CharacterWithCards[] =
-						[];
-
-					for (
-						const char of charsResult
-					) {
-						if (
-							cancelled ||
-							!isMountedRef.current
-						) {
-							console.log(
-								'[PlayerScreen] load cancelled inside character loop'
-							);
-							return;
-						}
-
-						const characterName =
-							char.name ??
-							'Невідомий';
-
-						const experienceCards =
-							experienceCardsMap.get(
-								char.character_name_id
-							) ?? [];
-
-						charsWithCards.push({
-							...char,
-							character_name:
-								characterName,
-							experienceCards,
-						});
-					}
-
-					if (
-						cancelled ||
-						!isMountedRef.current
-					) {
-						console.log(
-							'[PlayerScreen] load cancelled before final state update'
-						);
-						return;
-					}
-
-					setCharacters(
-						charsWithCards
-					);
-
-					console.log(
-						'[PlayerScreen] loadData END'
-					);
-				} catch (error) {
-					if (
-						cancelled ||
-						!isMountedRef.current
-					) {
-						console.log(
-							'[PlayerScreen] load error ignored after unmount'
-						);
-						return;
-					}
-
-					console.error(
-						'[PlayerScreen] loadData ERROR:',
-						error
-					);
-
+				setAbility1(data.player.ability_card_id_1);
+				setAbility2(data.player.ability_card_id_2);
+				setAbility3(data.player.ability_card_id_3);
+				currentPlayerIdRef.current = data.currentPlayerId;
+				setCaptain(data.currentPlayerId === playerId);
+				setAbilityCards(data.abilityCards);
+				setCharacters(data.characters);
+			} catch (error) {
+				if (!cancelled) {
+					console.error('[PlayerScreen] load error:', error);
 					Alert.alert(
 						'Помилка',
-						error instanceof Error
-							? error.message
-							: 'Не вдалося завантажити дані гравця'
+						error instanceof Error ? error.message : 'Не вдалося завантажити дані гравця.'
 					);
-				} finally {
-					if (
-						!cancelled &&
-						isMountedRef.current
-					) {
-						setIsLoading(
-							false
-						);
-					}
 				}
-			};
+			} finally {
+				if (!cancelled && isMountedRef.current) {
+					setIsLoading(false);
+				}
+			}
+		};
 
 		load();
 
-		// =====================================================
-		// CLEANUP
-		// =====================================================
-
 		return () => {
 			cancelled = true;
-
-			isMountedRef.current =
-				false;
-
-			console.log(
-				'[PlayerScreen] UNMOUNT',
-				{
-					gameId,
-					playerId,
-				}
-			);
-
-			characterRefs.current =
-				{};
+			isMountedRef.current = false;
 		};
-	}, [
-		gameId,
-		playerId,
-		playerName,
-	]);
+	}, [gameId, playerId]);
 
 	// =====================================================
 	// CAPTAIN
 	// =====================================================
+	const handleCaptainToggle = async () => {
+		if (!isMountedRef.current) {
+			return;
+		}
 
-	const handleCaptainToggle =
-		async () => {
-			if (
-				!isMountedRef.current
-			) {
-				console.log(
-					'[PlayerScreen] captain toggle ignored: unmounted'
-				);
-				return;
-			}
-
-			// Зміна зберігається разом
-			// з усіма даними екрана
-			// в одній транзакції.
-			setCaptain(
-				(prev) => !prev
-			);
-		};
+		setCaptain((prev) => !prev);
+	};
 
 	// =====================================================
 	// SAVE

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 import {
 	View,
@@ -23,39 +23,80 @@ import {
 	type EventDeck,
 } from '../services/gameService';
 
+
 type GroupState = {
 	[type: string]: boolean;
 };
+
 
 const EventDeckScreen = ({ navigation, route }: any) => {
 	const { gameId } = route.params;
 
 	const [isLoading, setIsLoading] = useState(true);
-	const [eventCards, setEventCards] = useState<EventCard[]>([]);
-	const [eventDeck, setEventDeck] = useState<Map<number, EventDeck>>(
-		new Map()
-	);
 
-	const [groups, setGroups] = useState<GroupState>({
-		'Помірні': false,
-		'Небезпечні': false,
-		'Смертоносні': false,
-	});
+	const [eventCards, setEventCards] =
+		useState<EventCard[]>([]);
 
-	useEffect(() => {
-		loadData();
-	}, []);
+	const [eventDeck, setEventDeck] =
+		useState<Map<number, EventDeck>>(
+			new Map()
+		);
+
+	const [groups, setGroups] =
+		useState<GroupState>({
+			'помірні': false,
+			'небезпечні': false,
+			'смертоносні': false,
+		});
+
+
+	// ------------------------------------------------------------
+	// Захист від швидких повторних натискань
+	// ------------------------------------------------------------
+
+	const deckBusyRef = useRef(false);
+
+	const [isDeckBusy, setIsDeckBusy] =
+		useState(false);
+
+
+	const acquireDeckLock = (): boolean => {
+		if (deckBusyRef.current) {
+			return false;
+		}
+
+		deckBusyRef.current = true;
+		setIsDeckBusy(true);
+
+		return true;
+	};
+
+
+	const releaseDeckLock = () => {
+		deckBusyRef.current = false;
+		setIsDeckBusy(false);
+	};
+
+
+	// ------------------------------------------------------------
+	// LOAD DATA
+	// ------------------------------------------------------------
 
 	const loadData = async () => {
 		try {
-			const result = await getEventDeckScreen(gameId);
+			const result =
+				await getEventDeckScreen(gameId);
 
 			setEventCards(result.eventCards);
 
-			const deckMap = new Map<number, EventDeck>();
+			const deckMap =
+				new Map<number, EventDeck>();
 
 			result.eventDeck.forEach((item) => {
-				deckMap.set(item.event_card_id, item);
+				deckMap.set(
+					item.event_card_id,
+					item
+				);
 			});
 
 			setEventDeck(deckMap);
@@ -74,86 +115,109 @@ const EventDeckScreen = ({ navigation, route }: any) => {
 		}
 	};
 
-	const addEventCard = async (card: EventCard) => {
-		if (eventDeck.has(card.id)) {
-			await removeEventCard(card.id);
+
+	useEffect(() => {
+		loadData();
+	}, []);
+
+
+	// ------------------------------------------------------------
+	// ADD / REMOVE EVENT CARD
+	// ------------------------------------------------------------
+
+	const addEventCard = async (
+		card: EventCard
+	) => {
+		if (!acquireDeckLock()) {
 			return;
 		}
 
 		try {
-			const maxOrder = Math.max(
-				0,
-				...Array.from(eventDeck.values()).map(
-					(item) => item.order_number
-				)
-			);
+			const existingDeckItem =
+				eventDeck.get(card.id);
 
-			const newOrder = maxOrder + 1;
+			// --------------------------------------------------------
+			// REMOVE
+			// --------------------------------------------------------
 
-			const newDeckItem = await addEventCardToDeck(
-				gameId,
-				card.id,
-				newOrder
-			);
+			if (existingDeckItem) {
+				await removeEventCardFromDeck(
+					gameId,
+					existingDeckItem.id
+				);
+
+				setEventDeck((prev) => {
+					const newMap =
+						new Map(prev);
+
+					newMap.delete(card.id);
+
+					return newMap;
+				});
+
+				return;
+			}
+
+
+			// --------------------------------------------------------
+			// ADD
+			// --------------------------------------------------------
+
+			// order_number тепер визначається
+			// всередині gameService.
+			const newDeckItem =
+				await addEventCardToDeck(
+					gameId,
+					card.id
+				);
 
 			setEventDeck((prev) =>
-				new Map(prev).set(card.id, newDeckItem)
+				new Map(prev).set(
+					card.id,
+					newDeckItem
+				)
 			);
 		} catch (error) {
 			console.error(
-				'Помилка додавання картки події:',
+				'Помилка додавання/видалення картки події:',
 				error
 			);
 
 			Alert.alert(
 				'Помилка',
-				'Не вдалося додати картку події'
+				error instanceof Error
+					? error.message
+					: 'Не вдалося змінити колоду подій'
 			);
+		} finally {
+			releaseDeckLock();
 		}
 	};
 
-	const removeEventCard = async (
-		eventCardId: number
-	) => {
-		const deckItem = eventDeck.get(eventCardId);
 
-		if (!deckItem) return;
-
-		try {
-			await removeEventCardFromDeck(
-				gameId,
-				deckItem.id
-			);
-
-			setEventDeck((prev) => {
-				const newMap = new Map(prev);
-
-				newMap.delete(eventCardId);
-
-				return newMap;
-			});
-		} catch (error) {
-			console.error(
-				'Помилка видалення картки події:',
-				error
-			);
-
-			Alert.alert(
-				'Помилка',
-				'Не вдалося видалити картку події'
-			);
-		}
-	};
+	// ------------------------------------------------------------
+	// REMAINS IN GAME
+	// ------------------------------------------------------------
 
 	const toggleRemainsInGame = async (
 		eventCardId: number
 	) => {
-		const deckItem = eventDeck.get(eventCardId);
+		if (!acquireDeckLock()) {
+			return;
+		}
 
-		if (!deckItem) return;
+		const deckItem =
+			eventDeck.get(eventCardId);
+
+		if (!deckItem) {
+			releaseDeckLock();
+			return;
+		}
 
 		const newValue =
-			deckItem.remains_in_game === 1 ? 0 : 1;
+			deckItem.remains_in_game === 1
+				? 0
+				: 1;
 
 		try {
 			await setEventCardRemainsInGame(
@@ -163,7 +227,8 @@ const EventDeckScreen = ({ navigation, route }: any) => {
 			);
 
 			setEventDeck((prev) => {
-				const newMap = new Map(prev);
+				const newMap =
+					new Map(prev);
 
 				newMap.set(eventCardId, {
 					...deckItem,
@@ -180,23 +245,39 @@ const EventDeckScreen = ({ navigation, route }: any) => {
 
 			Alert.alert(
 				'Помилка',
-				'Не вдалося оновити стан картки'
+				error instanceof Error
+					? error.message
+					: 'Не вдалося оновити стан картки'
 			);
+		} finally {
+			releaseDeckLock();
 		}
 	};
 
-	const toggleGroup = (type: string) => {
+
+	// ------------------------------------------------------------
+	// GROUPS
+	// ------------------------------------------------------------
+
+	const toggleGroup = (
+		type: string
+	) => {
 		setGroups((prev) => ({
 			...prev,
 			[type]: !prev[type],
 		}));
 	};
 
+
+	// ------------------------------------------------------------
 	// Перевірка, чи є у картки властивість "постійна"
+	// ------------------------------------------------------------
+
 	const hasPropertyConstantly = (
 		card: EventCard
 	): boolean => {
-		const raw = card.property_constantly;
+		const raw =
+			card.property_constantly;
 
 		if (typeof raw === 'boolean') {
 			return raw;
@@ -207,7 +288,8 @@ const EventDeckScreen = ({ navigation, route }: any) => {
 		}
 
 		if (typeof raw === 'string') {
-			const lower = raw.toLowerCase();
+			const lower =
+				raw.toLowerCase();
 
 			return (
 				lower === 'true' ||
@@ -218,23 +300,34 @@ const EventDeckScreen = ({ navigation, route }: any) => {
 		return false;
 	};
 
+
+	// ------------------------------------------------------------
+	// RENDER CARD
+	// ------------------------------------------------------------
+
 	const renderEventCard = (
 		card: EventCard
 	) => {
-		const isAdded = eventDeck.has(card.id);
+		const isAdded =
+			eventDeck.has(card.id);
 
 		const deckItem = isAdded
 			? eventDeck.get(card.id)
 			: null;
 
+		const isBusy =
+			isDeckBusy;
+
 		const containerStyle = [
 			styles.cardContainer,
-			isAdded && styles.cardContainerActive,
+			isAdded &&
+			styles.cardContainerActive,
 		];
 
 		const nameStyle = [
 			styles.cardName,
-			isAdded && styles.cardNameActive,
+			isAdded &&
+			styles.cardNameActive,
 		];
 
 		const hasProperty =
@@ -244,8 +337,11 @@ const EventDeckScreen = ({ navigation, route }: any) => {
 			<TouchableOpacity
 				key={card.id}
 				style={containerStyle}
-				onPress={() => addEventCard(card)}
+				onPress={() =>
+					addEventCard(card)
+				}
 				activeOpacity={0.7}
+				disabled={isBusy}
 			>
 				<View style={styles.cardRow}>
 					{isAdded && (
@@ -268,7 +364,9 @@ const EventDeckScreen = ({ navigation, route }: any) => {
 							style={styles.checkboxButton}
 							onPress={(e) => {
 								e.stopPropagation();
-								toggleRemainsInGame(card.id);
+								toggleRemainsInGame(
+									card.id
+								);
 							}}
 							hitSlop={{
 								top: 10,
@@ -276,6 +374,7 @@ const EventDeckScreen = ({ navigation, route }: any) => {
 								left: 10,
 								right: 10,
 							}}
+							disabled={isBusy}
 						>
 							<View
 								style={[
@@ -301,12 +400,21 @@ const EventDeckScreen = ({ navigation, route }: any) => {
 		);
 	};
 
-	const renderGroup = (type: string) => {
-		const cards = eventCards.filter(
-			(c) => c.type === type
-		);
 
-		const isOpen = groups[type] || false;
+	// ------------------------------------------------------------
+	// RENDER GROUP
+	// ------------------------------------------------------------
+
+	const renderGroup = (
+		type: string
+	) => {
+		const cards =
+			eventCards.filter(
+				(c) => c.type === type
+			);
+
+		const isOpen =
+			groups[type] || false;
 
 		return (
 			<View
@@ -315,10 +423,14 @@ const EventDeckScreen = ({ navigation, route }: any) => {
 			>
 				<TouchableOpacity
 					style={styles.groupHeader}
-					onPress={() => toggleGroup(type)}
+					onPress={() =>
+						toggleGroup(type)
+					}
 					activeOpacity={0.7}
 				>
-					<Text style={styles.groupTitle}>
+					<Text
+						style={styles.groupTitle}
+					>
 						{type[0].toUpperCase() +
 							type.slice(1)}
 					</Text>
@@ -335,9 +447,13 @@ const EventDeckScreen = ({ navigation, route }: any) => {
 				</TouchableOpacity>
 
 				{isOpen && (
-					<View style={styles.cardList}>
+					<View
+						style={styles.cardList}
+					>
 						{cards.length === 0 ? (
-							<Text style={styles.emptyText}>
+							<Text
+								style={styles.emptyText}
+							>
 								Немає карток цього типу
 							</Text>
 						) : (
@@ -351,6 +467,11 @@ const EventDeckScreen = ({ navigation, route }: any) => {
 		);
 	};
 
+
+	// ------------------------------------------------------------
+	// LOADING
+	// ------------------------------------------------------------
+
 	if (isLoading) {
 		return (
 			<SafeAreaView
@@ -361,19 +482,34 @@ const EventDeckScreen = ({ navigation, route }: any) => {
 					color="#004d57"
 				/>
 
-				<Text style={styles.loadingText}>
+				<Text
+					style={styles.loadingText}
+				>
 					Завантаження...
 				</Text>
 			</SafeAreaView>
 		);
 	}
 
+
+	// ------------------------------------------------------------
+	// SCREEN
+	// ------------------------------------------------------------
+
 	return (
-		<SafeAreaView style={styles.container}>
-			<View style={styles.headerWrapper}>
-				<View style={styles.backButtonWrapper}>
+		<SafeAreaView
+			style={styles.container}
+		>
+			<View
+				style={styles.headerWrapper}
+			>
+				<View
+					style={styles.backButtonWrapper}
+				>
 					<TouchableOpacity
-						onPress={() => navigation.goBack()}
+						onPress={() =>
+							navigation.goBack()
+						}
 						style={styles.backButton}
 					>
 						<Ionicons
@@ -384,8 +520,12 @@ const EventDeckScreen = ({ navigation, route }: any) => {
 					</TouchableOpacity>
 				</View>
 
-				<View style={styles.titleWrapper}>
-					<Text style={styles.header}>
+				<View
+					style={styles.titleWrapper}
+				>
+					<Text
+						style={styles.header}
+					>
 						Колода подій
 					</Text>
 				</View>
@@ -403,17 +543,22 @@ const EventDeckScreen = ({ navigation, route }: any) => {
 			</ScrollView>
 
 			<View style={styles.footer}>
-				<Text style={styles.subHeaderTextA}>
+				<Text
+					style={styles.subHeaderTextA}
+				>
 					П
 				</Text>
 
-				<Text style={styles.subHeaderText}>
+				<Text
+					style={styles.subHeaderText}
+				>
 					- картка залишається у грі
 				</Text>
 			</View>
 		</SafeAreaView>
 	);
 };
+
 
 const styles = StyleSheet.create({
 	container: {
@@ -510,10 +655,7 @@ const styles = StyleSheet.create({
 		color: '#004d57',
 	},
 
-	cardList: {
-		// paddingHorizontal: 16,
-		// paddingBottom: 8,
-	},
+	cardList: {},
 
 	cardContainer: {
 		paddingVertical: 10,
@@ -620,5 +762,6 @@ const styles = StyleSheet.create({
 		color: '#fff',
 	},
 });
+
 
 export default EventDeckScreen;

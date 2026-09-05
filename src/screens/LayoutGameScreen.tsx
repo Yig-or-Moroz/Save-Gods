@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+
 import {
 	View,
 	Text,
@@ -8,12 +9,12 @@ import {
 	Alert,
 	ActivityIndicator,
 	LayoutAnimation,
-	Platform,
 	Image,
 } from 'react-native';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { db } from '../database';
 import Ionicons from '@expo/vector-icons/Ionicons';
+
 import ShipView from '../components/ShipView';
 import CharacterView from '../components/CharacterView';
 import PlayerView from '../components/PlayerView';
@@ -22,111 +23,22 @@ import TaskView from '../components/TaskView';
 
 import CaptainImage from '../../assets/images/captian-token.webp';
 
+import {
+	getLayoutGameScreen,
+	type LayoutGameScreenData,
+} from '../services/gameService';
+
 // ---------- ТИПИ ----------
-type GameData = {
-	id: number;
-	game_name: string;
-	number_of_players: number;
-	difficulty_level: number;
-	experience: number;
-	number_of_losses: number;
-	win: number;
-	current_player_id: number | null;
-};
 
-type Player = {
-	id: number;
-	name: string;
-};
-
-type ShipData = {
-	id: number;
-	game_id: number;
-	hull: number;
-	deck: number;
-	hospital: number;
-	caboose: number;
-	cabin: number;
-	bridge: number;
-	last_action: number;
-	page: number;
-	location: string;
-	meat: number;
-	vegetables: number;
-	grain: number;
-	materials: number;
-	artifacts: number;
-	coins: number;
-};
-
-type Good = {
-	id: number;
-	name: string;
-	type: string;
-};
-
-type ChestGood = {
-	id: number;
-	game_id: number;
-	goods_id: number;
-	activated: number;
-};
-
-type AdventureDeckItem = {
-	id: number;
-	game_id: number;
-	card_number: number;
-	name: string;
-	type: string;
-	totem: number;
-	activated: number;
-};
-
-type UnifiedGood = {
-	id: number;
-	name: string;
-	type: string;
-	activated: boolean;
-	isTotem: boolean;
-	source: 'chest' | 'adventure';
-};
-
-type CharacterData = {
-	id: number;
-	game_id: number;
-	player_id: number | null;
-	character_name_id: number;
-	damage: number;
-	fatigue: number;
-	fright: number;
-	madness: number;
-	poisoning: number;
-	weakness: number;
-	low_morale: number;
-	ability_card_id_1: number | null;
-	ability_card_id_2: number | null;
-	experience_card_id_1: number | null;
-	experience_card_id_2: number | null;
-	experience_card_id_3: number | null;
-};
-
-type AbilityCard = {
-	id: number;
-	name: string;
-};
-
-type ExperienceCard = {
-	id: number;
-	name: string;
-	character_name_id: number;
-};
-
-type TaskCard = {
-	id: number;
-	game_id: number;
-	card_number: number;
-	done: number;
-};
+type GameData = LayoutGameScreenData['game'];
+type Player = LayoutGameScreenData['players'][number];
+type ShipData = NonNullable<LayoutGameScreenData['ship']>;
+type UnifiedGood = LayoutGameScreenData['allGoods'][number];
+type CharacterData = LayoutGameScreenData['characters'][number];
+type AbilityCard = LayoutGameScreenData['abilityCards'][number];
+type ExperienceCard = LayoutGameScreenData['experienceCards'][number];
+type TaskCard = LayoutGameScreenData['taskCards'][number];
+type EventCard = LayoutGameScreenData['eventCards'][number];
 
 type Section = {
 	id: string;
@@ -137,9 +49,12 @@ type Section = {
 };
 
 // ---------- ОСНОВНИЙ КОМПОНЕНТ ----------
+
 const LayoutGameScreen = ({ navigation, route }: any) => {
 	const { gameId } = route.params;
+
 	const [isLoading, setIsLoading] = useState(true);
+
 	const [game, setGame] = useState<GameData | null>(null);
 	const [players, setPlayers] = useState<Player[]>([]);
 	const [ship, setShip] = useState<ShipData | null>(null);
@@ -148,36 +63,95 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 	const [abilityCards, setAbilityCards] = useState<AbilityCard[]>([]);
 	const [experienceCards, setExperienceCards] = useState<ExperienceCard[]>([]);
 	const [taskCards, setTaskCards] = useState<TaskCard[]>([]);
+	const [eventCards, setEventCards] = useState<EventCard[]>([]);
+
 	const [finalScore, setFinalScore] = useState<number>(0);
-	const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+
+	const [expandedSections, setExpandedSections] = useState<Set<string>>(
+		new Set()
+	);
+
+	// ---------- ЗАВАНТАЖЕННЯ ДАНИХ ----------
 
 	useEffect(() => {
 		loadGameData();
-	}, []);
+	}, [gameId]);
+
+	const loadGameData = async () => {
+		try {
+			setIsLoading(true);
+
+			const data = await getLayoutGameScreen(gameId);
+
+			setGame(data.game);
+			setPlayers(data.players);
+			setShip(data.ship);
+			setAllGoods(data.allGoods);
+			setCharacters(data.characters);
+			setAbilityCards(data.abilityCards);
+			setExperienceCards(data.experienceCards);
+			setTaskCards(data.taskCards);
+			setEventCards(data.eventCards);
+		} catch (error) {
+			console.error('Помилка завантаження даних гри:', error);
+
+			Alert.alert(
+				'Помилка',
+				error instanceof Error
+					? error.message
+					: 'Не вдалося завантажити гру'
+			);
+
+			navigation.goBack();
+		} finally {
+			setIsLoading(false);
+		}
+	};
+
+	// ---------- ФІНАЛЬНИЙ РАХУНОК ----------
 
 	const calculateFinalScore = () => {
-		if (!game || !ship) return 0;
+		if (!game || !ship) {
+			setFinalScore(0);
+			return;
+		}
 
 		let score = 0;
 
 		// AdventureDeck: за кожну картку - 2 очки
-		const adventureCardsCount = allGoods.filter(g => g.source === 'adventure').length;
+		const adventureCardsCount = allGoods.filter(
+			(good) => good.source === 'adventure'
+		).length;
+
 		score += adventureCardsCount * 2;
 
-		// AdventureDeck: totem === true -> ще +2 за кожну
-		const totemCount = allGoods.filter(g => g.source === 'adventure' && g.isTotem).length;
+		// AdventureDeck: кожен тотем - ще +2 очки
+		const totemCount = allGoods.filter(
+			(good) => good.source === 'adventure' && good.isTotem
+		).length;
+
 		score += totemCount * 2;
 
 		// TaskDeck: за кожну картку - 1 очко
-		score += taskCards.length * 1;
+		score += taskCards.length;
 
-		// Characters: за кожну experience_card_id - 2 очки
+		// Characters: за кожну experience card - 2 очки
 		let expCardsCount = 0;
-		characters.forEach(char => {
-			if (char.experience_card_id_1) expCardsCount++;
-			if (char.experience_card_id_2) expCardsCount++;
-			if (char.experience_card_id_3) expCardsCount++;
+
+		characters.forEach((character) => {
+			if (character.experience_card_id_1) {
+				expCardsCount++;
+			}
+
+			if (character.experience_card_id_2) {
+				expCardsCount++;
+			}
+
+			if (character.experience_card_id_3) {
+				expCardsCount++;
+			}
 		});
+
 		score += expCardsCount * 2;
 
 		// Ship: за кожні 2 монети - 1 очко
@@ -188,9 +162,11 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 
 		// Win бонуси
 		if (game.win === 1) {
-			if (game.difficulty_level === 1) { // normal
+			if (game.difficulty_level === 1) {
+				// normal
 				score += 10;
-			} else if (game.difficulty_level === 2) { // hard
+			} else if (game.difficulty_level === 2) {
+				// hard
 				score += 25;
 			}
 		}
@@ -203,136 +179,30 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 		setFinalScore(score);
 	};
 
-	const loadGameData = async () => {
-		try {
-			// 1. Гра
-			const gameResult = await db.getAllAsync<GameData>(
-				`SELECT id, game_name, number_of_players, difficulty_level,
-					experience, number_of_losses, win, current_player_id
-				 FROM games WHERE id = ?;`,
-				[gameId]
-			);
-			if (gameResult.length === 0) {
-				Alert.alert('Помилка', 'Гру не знайдено');
-				navigation.goBack();
-				return;
-			}
-			const gameData = gameResult[0];
-			setGame(gameData);
-
-			// 2. Гравці. Поточний гравець зберігається в games.current_player_id.
-			const playersResult = await db.getAllAsync<Player>(
-				'SELECT id, name FROM players WHERE game_id = ? ORDER BY id;',
-				[gameId]
-			);
-			setPlayers(playersResult);
-
-			// 3. Корабель
-			const shipResult = await db.getAllAsync<ShipData>(
-				'SELECT * FROM ships WHERE game_id = ?;',
-				[gameId]
-			);
-			if (shipResult.length > 0) {
-				setShip(shipResult[0]);
-			}
-
-			// 4. Майно (chest_goods + adventure_decks)
-			const chestResult = await db.getAllAsync<ChestGood>(
-				'SELECT goods_id, activated FROM chest_goods WHERE game_id = ?;',
-				[gameId]
-			);
-			let combinedGoods: UnifiedGood[] = [];
-			if (chestResult.length > 0) {
-				const goodsIds = chestResult.map((item) => item.goods_id);
-				const goodsResult = await db.getAllAsync<Good>(
-					`SELECT * FROM goods WHERE id IN (${goodsIds.join(',')});`
-				);
-				combinedGoods = goodsResult.map((good) => {
-					const chest = chestResult.find((c) => c.goods_id === good.id);
-					return {
-						id: good.id,
-						name: good.name,
-						type: good.type,
-						activated: chest?.activated === 1,
-						isTotem: good.type.toLowerCase().includes('тотем'),
-						source: 'chest' as const,
-					};
-				});
-			}
-
-			const adventureResult = await db.getAllAsync<AdventureDeckItem>(
-				'SELECT id, card_number, name, type, totem, activated FROM adventure_decks WHERE game_id = ?;',
-				[gameId]
-			);
-			const adventureGoods: UnifiedGood[] = adventureResult.map((item) => ({
-				id: item.id,
-				name: item.name,
-				type: item.type,
-				activated: item.activated === 1,
-				isTotem: item.totem === 1,
-				source: 'adventure' as const,
-			}));
-
-			setAllGoods([...combinedGoods, ...adventureGoods]);
-
-			// 5. Картки здібностей (всі, для довідника)
-			const abilityResult = await db.getAllAsync<AbilityCard>(
-				'SELECT * FROM ability_cards ORDER BY name;'
-			);
-			setAbilityCards(abilityResult);
-
-			// 6. Картки досвіду (всі, для довідника)
-			const experienceResult = await db.getAllAsync<ExperienceCard>(
-				'SELECT * FROM experience_cards ORDER BY name;'
-			);
-			setExperienceCards(experienceResult);
-
-			// 7. Персонажі гри
-			const charactersResult = await db.getAllAsync<CharacterData>(
-				'SELECT * FROM characters WHERE game_id = ?;',
-				[gameId]
-			);
-			setCharacters(charactersResult);
-
-			// 8. Завдання (task_decks)
-			const taskResult = await db.getAllAsync<TaskCard>(
-				'SELECT * FROM task_decks WHERE game_id = ? ORDER BY card_number;',
-				[gameId]
-			);
-			setTaskCards(taskResult);
-
-			// 9. Після завантаження всіх даних розраховуємо фінальний рахунок
-			// Але ship та game вже доступні, але ми використовуємо їх у calculateFinalScore
-			// Однак setShip, setGame, setAllGoods, setCharacters, setTaskCards – асинхронні,
-			// тому краще викликати calculateFinalScore після всіх setState у цьому блоці
-			// або в окремому useEffect, який залежить від цих даних.
-		} catch (error) {
-			console.error('Помилка завантаження даних гри:', error);
-			Alert.alert('Помилка', 'Не вдалося завантажити гру');
-		} finally {
-			setIsLoading(false);
-		}
-	};
-
-	// Викликаємо перерахунок, коли всі дані завантажені
+	// Викликаємо перерахунок після зміни необхідних даних
 	useEffect(() => {
-		if (game && ship && allGoods.length >= 0 && characters.length >= 0 && taskCards.length >= 0) {
-			calculateFinalScore();
-		}
+		calculateFinalScore();
 	}, [game, ship, allGoods, characters, taskCards]);
+
+	// ---------- РОЗКРИТТЯ СЕКЦІЙ ----------
 
 	const toggleSection = (sectionId: string) => {
 		LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+
 		setExpandedSections((prev) => {
 			const newSet = new Set(prev);
+
 			if (newSet.has(sectionId)) {
 				newSet.delete(sectionId);
 			} else {
 				newSet.add(sectionId);
 			}
+
 			return newSet;
 		});
 	};
+
+	// ---------- ВІДОБРАЖЕННЯ СЕКЦІЇ ----------
 
 	const renderSection = (section: Section) => {
 		const isExpanded = expandedSections.has(section.id);
@@ -344,11 +214,16 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 				<ShipView ship={ship} allGoods={allGoods} />
 			) : (
 				<View style={styles.sectionContentInner}>
-					<Text style={styles.placeholderText}>Дані корабля відсутні</Text>
+					<Text style={styles.placeholderText}>
+						Дані корабля відсутні
+					</Text>
 				</View>
 			);
 		} else if (section.id === 'captain') {
-			const captainData = characters.find((c) => c.character_name_id === 1);
+			const captainData = characters.find(
+				(character) => character.character_name_id === 1
+			);
+
 			if (captainData) {
 				content = (
 					<CharacterView
@@ -361,17 +236,22 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 			} else {
 				content = (
 					<View style={styles.sectionContentInner}>
-						<Text style={styles.placeholderText}>Дані капітана відсутні</Text>
+						<Text style={styles.placeholderText}>
+							Дані капітана відсутні
+						</Text>
 					</View>
 				);
 			}
 		} else if (section.type === 'player') {
-			const player = players.find((p) => p.id === section.playerId);
+			const player = players.find(
+				(p) => p.id === section.playerId
+			);
+
 			if (player) {
 				content = (
 					<PlayerView
-						playerId={player.id}
-						gameId={game?.id || 0}
+						player={player}
+						characters={characters}
 						abilityCards={abilityCards}
 						experienceCards={experienceCards}
 					/>
@@ -379,18 +259,22 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 			} else {
 				content = (
 					<View style={styles.sectionContentInner}>
-						<Text style={styles.placeholderText}>Дані гравця відсутні</Text>
+						<Text style={styles.placeholderText}>
+							Дані гравця відсутні
+						</Text>
 					</View>
 				);
 			}
 		} else if (section.id === 'events') {
-			content = <EventCardView gameId={game?.id || 0} />;
+			content = <EventCardView cards={eventCards} />;
 		} else if (section.id === 'tasks') {
-			content = <TaskView gameId={game?.id || 0} />;
+			content = <TaskView taskCards={taskCards} />;
 		} else {
 			content = (
 				<View style={styles.sectionContentInner}>
-					<Text style={styles.placeholderText}>Тут буде інформація про {section.title}</Text>
+					<Text style={styles.placeholderText}>
+						Тут буде інформація про {section.title}
+					</Text>
 				</View>
 			);
 		}
@@ -399,38 +283,66 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 			if (section.type === 'player' && section.isCaptain) {
 				return (
 					<View style={styles.sectionTitleContainer}>
-						<Text style={styles.sectionTitle}>{section.title}</Text>
-						<Image source={CaptainImage} style={styles.captainIcon} />
+						<Text style={styles.sectionTitle}>
+							{section.title}
+						</Text>
+
+						<Image
+							source={CaptainImage}
+							style={styles.captainIcon}
+						/>
 					</View>
 				);
 			}
-			return <Text style={styles.sectionTitle}>{section.title}</Text>;
+
+			return (
+				<Text style={styles.sectionTitle}>
+					{section.title}
+				</Text>
+			);
 		};
 
 		return (
-			<View key={section.id} style={styles.sectionContainer}>
+			<View
+				key={section.id}
+				style={styles.sectionContainer}
+			>
 				<TouchableOpacity
 					style={styles.sectionHeader}
 					onPress={() => toggleSection(section.id)}
 					activeOpacity={0.7}
 				>
 					{renderSectionTitle()}
+
 					<Ionicons
 						name={isExpanded ? 'chevron-up' : 'chevron-down'}
 						size={24}
 						color="#004d57"
 					/>
 				</TouchableOpacity>
-				{isExpanded && <View style={styles.sectionContent}>{content}</View>}
+
+				{isExpanded && (
+					<View style={styles.sectionContent}>
+						{content}
+					</View>
+				)}
 			</View>
 		);
 	};
 
+	// ---------- LOADING ----------
+
 	if (isLoading) {
 		return (
 			<SafeAreaView style={styles.loadingContainer}>
-				<ActivityIndicator size="large" color="#004d57" />
-				<Text style={styles.loadingText}>Завантаження гри...</Text>
+				<ActivityIndicator
+					size="large"
+					color="#004d57"
+				/>
+
+				<Text style={styles.loadingText}>
+					Завантаження гри...
+				</Text>
 			</SafeAreaView>
 		);
 	}
@@ -439,51 +351,107 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 		return null;
 	}
 
+	// ---------- СЕКЦІЇ ----------
+
 	const sections: Section[] = [
-		{ id: 'ship', title: 'Корабель', type: 'ship' },
-		{ id: 'captain', title: 'Капітан Софі Одеса', type: 'captain' },
-		...players.map((p) => ({
-			id: `player-${p.id}`,
-			title: p.name,
+		{
+			id: 'ship',
+			title: 'Корабель',
+			type: 'ship',
+		},
+
+		{
+			id: 'captain',
+			title: 'Капітан Софі Одеса',
+			type: 'captain',
+		},
+
+		...players.map((player) => ({
+			id: `player-${player.id}`,
+			title: player.name,
 			type: 'player' as const,
-			playerId: p.id,
-			isCaptain: p.id === game.current_player_id,
+			playerId: player.id,
+			isCaptain: player.id === game.current_player_id,
 		})),
-		{ id: 'events', title: 'Колода подій', type: 'events' },
-		{ id: 'tasks', title: 'Колода завдань', type: 'tasks' },
+
+		{
+			id: 'events',
+			title: 'Колода подій',
+			type: 'events',
+		},
+
+		{
+			id: 'tasks',
+			title: 'Колода завдань',
+			type: 'tasks',
+		},
 	];
 
 	const isNormal = game.difficulty_level === 1;
+
+	// ---------- UI ----------
 
 	return (
 		<SafeAreaView style={styles.container}>
 			<View style={styles.headerWrapper}>
 				<View style={styles.backButtonWrapper}>
-					<TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-						<Ionicons name="arrow-back" size={22} color="#004d57" />
+					<TouchableOpacity
+						onPress={() => navigation.goBack()}
+						style={styles.backButton}
+					>
+						<Ionicons
+							name="arrow-back"
+							size={22}
+							color="#004d57"
+						/>
 					</TouchableOpacity>
 				</View>
+
 				<View style={styles.titleWrapper}>
-					<Text style={styles.header}>{game.game_name}</Text>
+					<Text style={styles.header}>
+						{game.game_name}
+					</Text>
 				</View>
 			</View>
 
-			<ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-				{sections.map((section) => renderSection(section))}
+			<ScrollView
+				style={styles.scrollView}
+				contentContainerStyle={styles.scrollContent}
+			>
+				{sections.map((section) =>
+					renderSection(section)
+				)}
 
 				<View style={styles.footerContainer}>
 					<View style={styles.footerRow}>
-						<Text style={styles.footerLabel}>Фінальний рахунок:</Text>
-						<Text style={styles.footerValue}>{finalScore}</Text>
+						<Text style={styles.footerLabel}>
+							Фінальний рахунок:
+						</Text>
+
+						<Text style={styles.footerValue}>
+							{finalScore}
+						</Text>
 					</View>
+
 					<View style={styles.footerRow}>
-						<Text style={styles.footerLabel}>Очки досвіду:</Text>
-						<Text style={styles.footerValue}>{game.experience}</Text>
+						<Text style={styles.footerLabel}>
+							Очки досвіду:
+						</Text>
+
+						<Text style={styles.footerValue}>
+							{game.experience}
+						</Text>
 					</View>
+
 					{isNormal && (
 						<View style={styles.footerRow}>
-							<Text style={styles.footerLabel}>Кількість поразок:</Text>
-							<Text style={styles.footerValue}>{game.number_of_losses}</Text>
+							<Text style={styles.footerLabel}>
+								Кількість поразок:
+							</Text>
+
+							<Text style={styles.footerValue}>
+								{game.number_of_losses}
+							</Text>
 						</View>
 					)}
 				</View>
@@ -492,23 +460,28 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 	);
 };
 
+// ---------- СТИЛІ ----------
+
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
 		backgroundColor: '#f5f0e8',
 	},
+
 	loadingContainer: {
 		flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center',
 		backgroundColor: '#f5f0e8',
 	},
+
 	loadingText: {
 		marginTop: 16,
 		fontSize: 18,
 		color: '#004d57',
 		fontFamily: 'Kyiv-Machine',
 	},
+
 	headerWrapper: {
 		flexDirection: 'column',
 		width: '100%',
@@ -518,10 +491,12 @@ const styles = StyleSheet.create({
 		borderBottomWidth: 1,
 		borderBottomColor: '#004d57',
 	},
+
 	backButtonWrapper: {
 		alignSelf: 'flex-start',
 		marginBottom: 8,
 	},
+
 	backButton: {
 		width: 40,
 		height: 40,
@@ -532,28 +507,34 @@ const styles = StyleSheet.create({
 		justifyContent: 'center',
 		backgroundColor: '#fff',
 	},
+
 	titleWrapper: {
 		alignSelf: 'center',
 		width: '100%',
 		marginBottom: 16,
 	},
+
 	header: {
 		fontSize: 28,
 		fontFamily: 'Kyiv-Machine',
 		color: '#004d57',
 		textAlign: 'center',
 	},
+
 	scrollView: {
 		flex: 1,
 	},
+
 	scrollContent: {
 		padding: 16,
 		paddingBottom: 40,
 	},
+
 	sectionContainer: {
 		backgroundColor: '#f5f0e8',
 		overflow: 'hidden',
 	},
+
 	sectionHeader: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
@@ -563,33 +544,40 @@ const styles = StyleSheet.create({
 		borderBottomWidth: 1,
 		borderBottomColor: '#ccc',
 	},
+
 	sectionTitle: {
 		fontSize: 22,
 		fontFamily: 'Kyiv-Machine',
 		color: '#004d57',
 	},
+
 	sectionTitleContainer: {
 		flexDirection: 'row',
 		alignItems: 'center',
 	},
+
 	captainIcon: {
 		width: 50,
 		height: 25,
 		marginLeft: 16,
 		resizeMode: 'contain',
 	},
+
 	sectionContent: {
 		backgroundColor: '#f5f0e8',
 	},
+
 	sectionContentInner: {
 		padding: 16,
 	},
+
 	placeholderText: {
 		fontSize: 16,
 		color: '#888',
 		fontFamily: 'Kyiv-Machine',
 		textAlign: 'center',
 	},
+
 	footerContainer: {
 		backgroundColor: '#fff',
 		borderRadius: 12,
@@ -600,25 +588,30 @@ const styles = StyleSheet.create({
 		shadowRadius: 2,
 		elevation: 2,
 	},
+
 	footerRow: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
 		paddingVertical: 6,
 	},
+
 	footerLabel: {
 		fontSize: 16,
 		fontFamily: 'Kyiv-Machine',
 		color: '#004d57',
 	},
+
 	footerValue: {
 		fontSize: 18,
 		fontFamily: 'Kyiv-Machine',
 		color: '#004d57',
 	},
+
 	winText: {
 		color: '#2e7d32',
 	},
+
 	loseText: {
 		color: '#691716',
 	},

@@ -1,4 +1,4 @@
-import { db } from '../database';
+import { runInTransaction } from './transaction';
 
 import {
 	createGame as createGameRepository,
@@ -12,7 +12,8 @@ import {
 export type { SavedGame };
 
 import {
-	getShip,
+	getShip,	
+	createShip,
 	updateShip,
 	type Ship,
 } from '../repositories/shipRepository';
@@ -34,9 +35,11 @@ import {
 	getCharactersWithNames,
 	getCharactersForPlayer,
 	getPlayableCharacterNames,
+	getAllCharacterNames,
 	getExperienceCardsForCharacterNames,
 	getSophie,
 	updateCharacter,
+	getAllExperienceCards,
 	type CharacterWithName,
 } from '../repositories/characterRepository';
 
@@ -90,7 +93,6 @@ export type { TaskCard };
 
 import {
 	validateCharacterDistribution,
-	validateExactCharacterDistribution,
 	validateGameName,
 	validatePlayerCount,
 	normalizePlayerName,
@@ -106,6 +108,7 @@ import {
 import type {
 	AbilityCard,
 	ExperienceCard,
+	Player,
 } from '../models/types';
 
 
@@ -226,6 +229,80 @@ export type PlayerCharacterSave = {
 	experienceCardId3: number | null;
 };
 
+export type PlayerScreenCharacter = CharacterWithName & {
+	character_name: string;
+	experienceCards: ExperienceCard[];
+};
+
+export type PlayerScreenData = {
+	player: Player;
+	currentPlayerId: number | null;
+	characters: PlayerScreenCharacter[];
+	abilityCards: AbilityCard[];
+};
+
+// ============================================================
+// PLAYER SCREEN LOAD
+// ============================================================
+
+export const getPlayerScreen = async (
+	gameId: number,
+	playerId: number
+): Promise<PlayerScreenData> => {
+	if (!Number.isInteger(gameId) || gameId <= 0) {
+		throw new Error('Некоректний ID гри.');
+	}
+
+	if (!Number.isInteger(playerId) || playerId <= 0) {
+		throw new Error('Некоректний ID гравця.');
+	}
+
+	const [player, game, abilityCards, characters] =
+		await Promise.all([
+		requirePlayer(gameId, playerId),
+		requireGame(gameId),
+		getAbilityCards(),
+		getCharactersForPlayer(gameId, playerId),
+	]);
+
+	const characterNameIds = characters.map(
+		(character) => character.character_name_id
+	);
+
+	const experienceCards =
+		await getExperienceCardsForCharacterNames(
+			characterNameIds
+		);
+
+	const experienceCardsByCharacter = new Map<
+		number,
+		ExperienceCard[]
+	>();
+
+	for (const characterNameId of characterNameIds) {
+		experienceCardsByCharacter.set(
+			characterNameId,
+			experienceCards.filter(
+				(card) => card.character_name_id === characterNameId
+			)
+		);
+	}
+
+	return {
+		player,
+		currentPlayerId: game.current_player_id,
+		characters: characters.map((character) => ({
+			...character,
+			character_name: character.name,
+			experienceCards:
+				experienceCardsByCharacter.get(
+					character.character_name_id
+				) ?? [],
+		})),
+		abilityCards,
+	};
+};
+
 export type SavePlayerScreenInput = {
 	gameId: number;
 	playerId: number;
@@ -323,6 +400,61 @@ export type SaveCaptainScreenInput = {
 
 export type LoadGameScreenData = {
 	games: SavedGame[];
+};
+
+
+// ============================================================
+// LAYOUT GAME SCREEN
+// ============================================================
+
+export type LayoutGameScreenData = {
+	game: {
+		id: number;
+		game_name: string;
+		number_of_players: number;
+		difficulty_level: number;
+		experience: number;
+		number_of_losses: number;
+		win: number;
+		current_player_id: number | null;
+	};
+
+	players: Array<{
+		id: number;
+		name: string;
+		team_tokens: number;
+		ability_card_id_1: number | null;
+		ability_card_id_2: number | null;
+		ability_card_id_3: number | null;
+	}>;
+
+	ship: Ship | null;
+
+	allGoods: Array<{
+		id: number;
+		name: string;
+		type: string;
+		activated: boolean;
+		isTotem: boolean;
+		source: 'chest' | 'adventure';
+	}>;
+
+	eventCards: Array<{
+		id: number;
+		name: string;
+		type: string;
+		property_constantly: string | number | boolean;
+		order_number: number;
+		remains_in_game: number;
+	}>;
+
+	characters: CharacterWithName[];
+
+	abilityCards: AbilityCard[];
+
+	experienceCards: ExperienceCard[];
+
+	taskCards: TaskCard[];
 };
 
 // ============================================================
@@ -592,6 +724,18 @@ async function validateAbilityCardUniqueness(
 // CREATE GAME
 // ============================================================
 
+export const getNewGameScreen = async (): Promise<{
+	characters: Array<{ id: number; name: string }>;
+}> => {
+	const characters = await getAllCharacterNames();
+
+	return {
+		characters: characters.filter(
+			(character) => character.id !== SOPHIE_CHARACTER_ID
+		),
+	};
+};
+
 export async function createGame(
 	input: CreateGameInput
 ): Promise<number> {
@@ -662,20 +806,24 @@ export async function createGame(
 		assignments
 	);
 
-	validateExactCharacterDistribution(
-		input.playerCount,
-		assignments
-	);
-
 	const today =
 		input.gameDate ??
 		new Date()
 			.toISOString()
 			.split('T')[0];
 
+	if (!/^\d{4}-\d{2}-\d{2}$/.test(today)) {
+		throw new Error('Дата гри повинна мати формат YYYY-MM-DD.');
+	}
+
+	const parsedDate = new Date(`${today}T00:00:00Z`);
+	if (Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== today) {
+		throw new Error('Некоректна дата гри.');
+	}
+
 	let createdGameId = 0;
 
-	await db.withTransactionAsync(
+	await runInTransaction(
 		async () => {
 			// --------------------------------------------------------
 			// GAME
@@ -747,13 +895,7 @@ export async function createGame(
 			// SHIP
 			// --------------------------------------------------------
 
-			await db.runAsync(
-				`
-          INSERT INTO ships (game_id)
-          VALUES (?);
-        `,
-				createdGameId
-			);
+			await createShip(createdGameId);
 
 			// --------------------------------------------------------
 			// CURRENT PLAYER
@@ -1076,11 +1218,6 @@ export async function changePlayers(
 		playerAssignments
 	);
 
-	validateExactCharacterDistribution(
-		players.length,
-		playerAssignments
-	);
-
 	// ------------------------------------------------------------
 	// FINAL PLAYER IDS
 	// ------------------------------------------------------------
@@ -1144,7 +1281,7 @@ export async function changePlayers(
 	// ATOMIC TRANSACTION
 	// ------------------------------------------------------------
 
-	await db.withTransactionAsync(
+	await runInTransaction(
 		async () => {
 			const playerIdMap =
 				new Map<number, number>();
@@ -1628,7 +1765,7 @@ export async function saveCaptainScreen(
 	// TRANSACTION
 	// ------------------------------------------------------------
 
-	await db.withTransactionAsync(
+	await runInTransaction(
 		async () => {
 			await updateCharacter(
 				gameId,
@@ -1977,7 +2114,7 @@ export async function savePlayerScreen(
 	let savedCurrentPlayerId:
 		number | null = null;
 
-	await db.withTransactionAsync(
+	await runInTransaction(
 		async () => {
 			// --------------------------------------------------------
 			// PLAYER
@@ -2249,7 +2386,7 @@ export const deleteGame =
 			);
 		}
 
-		await db.withTransactionAsync(
+		await runInTransaction(
 			async () => {
 				await requireGame(
 					gameId
@@ -2383,7 +2520,7 @@ export async function saveGameScreen(
 		);
 	}
 
-	await db.withTransactionAsync(
+	await runInTransaction(
 		async () => {
 			await requireGame(
 				gameId
@@ -2428,7 +2565,7 @@ export const getGoodsScreen =
 			chestState: {},
 		};
 
-		await db.withTransactionAsync(
+		await runInTransaction(
 			async () => {
 				await requireGame(
 					gameId
@@ -2535,7 +2672,7 @@ export const addGoodToChest =
 			);
 		}
 
-		await db.withTransactionAsync(
+		await runInTransaction(
 			async () => {
 				await requireGame(
 					gameId
@@ -2596,7 +2733,7 @@ export const removeGoodFromChest =
 			);
 		}
 
-		await db.withTransactionAsync(
+		await runInTransaction(
 			async () => {
 				await requireGame(
 					gameId
@@ -2653,7 +2790,7 @@ export const setGoodActivated =
 			);
 		}
 
-		await db.withTransactionAsync(
+		await runInTransaction(
 			async () => {
 				await requireGame(
 					gameId
@@ -2769,7 +2906,7 @@ export const addAdventureCard =
 			);
 		}
 
-		await db.withTransactionAsync(
+		await runInTransaction(
 			async () => {
 				await requireGame(
 					gameId
@@ -2814,13 +2951,14 @@ export const deleteAdventureCard =
 			);
 		}
 
-		await db.withTransactionAsync(
+		await runInTransaction(
 			async () => {
 				await requireGame(
 					gameId
 				);
 
 				await deleteAdventureCardRepository(
+					gameId,
 					cardId
 				);
 			}
@@ -2860,13 +2998,14 @@ export const setAdventureCardActivated =
 			0 | 1 =
 			activated ? 1 : 0;
 
-		await db.withTransactionAsync(
+		await runInTransaction(
 			async () => {
 				await requireGame(
 					gameId
 				);
 
 				await updateAdventureCardActivated(
+					gameId,
 					cardId,
 					newActivated
 				);
@@ -2917,195 +3056,115 @@ export const getEventDeckScreen =
 // ADD EVENT CARD TO DECK
 // ============================================================
 
-export const addEventCardToDeck =
-	async (
-		gameId: number,
-		eventCardId: number,
-		orderNumber: number
-	): Promise<EventDeck> => {
-		if (
-			!Number.isInteger(gameId) ||
-			gameId <= 0
-		) {
-			throw new Error(
-				'Некоректний ID гри.'
-			);
-		}
+export const addEventCardToDeck = async (
+	gameId: number,
+	eventCardId: number
+): Promise<EventDeck> => {
+	if (!Number.isInteger(gameId) || gameId <= 0) {
+		throw new Error('Некоректний ID гри.');
+	}
 
-		if (
-			!Number.isInteger(
-				eventCardId
-			) ||
-			eventCardId <= 0
-		) {
-			throw new Error(
-				'Некоректний ID карти події.'
-			);
-		}
+	if (!Number.isInteger(eventCardId) || eventCardId <= 0) {
+		throw new Error('Некоректний ID карти події.');
+	}
 
-		if (
-			!Number.isInteger(
-				orderNumber
-			) ||
-			orderNumber <= 0
-		) {
-			throw new Error(
-				'Некоректний номер карти.'
-			);
-		}
+	let newCard!: EventDeck;
 
-		let newDeckItem:
-			EventDeck = {
-			id: 0,
-			game_id: gameId,
-			event_card_id:
-				eventCardId,
-			remains_in_game: 0,
-			order_number:
-				orderNumber,
-		};
+	await runInTransaction(async () => {
+		await requireGame(gameId);
 
-		await db.withTransactionAsync(
-			async () => {
-				await requireGame(
-					gameId
-				);
-
-				const eventCards =
-					await getEventCards();
-
-				const eventCard =
-					eventCards.find(
-						(card) =>
-							card.id ===
-							eventCardId
-					);
-
-				if (!eventCard) {
-					throw new Error(
-						`Карту події з ID ${eventCardId} не знайдено`
-					);
-				}
-
-				const id =
-					await addEventDeckCard(
-						gameId,
-						eventCardId,
-						0,
-						orderNumber
-					);
-
-				newDeckItem = {
-					id,
-
-					game_id:
-						gameId,
-
-					event_card_id:
-						eventCardId,
-
-					remains_in_game:
-						0,
-
-					order_number:
-						orderNumber,
-				};
-			}
+		const eventCard = (await getEventCards()).find(
+			(card) => card.id === eventCardId
 		);
 
-		return newDeckItem;
-	};
+		if (!eventCard) {
+			throw new Error(
+				`Карту події з ID ${eventCardId} не знайдено.`
+			);
+		}
 
+		const eventDeck = await getEventDeck(gameId);
+
+		if (eventDeck.some((card) => card.event_card_id === eventCardId)) {
+			throw new Error('Ця карта події вже додана до колоди.');
+		}
+
+		const maxOrder = Math.max(
+			0,
+			...eventDeck.map((item) => item.order_number)
+		);
+
+		const orderNumber = maxOrder + 1;
+		const id = await addEventDeckCard(
+			gameId,
+			eventCardId,
+			0,
+			orderNumber
+		);
+
+		newCard = {
+			id,
+			game_id: gameId,
+			event_card_id: eventCardId,
+			remains_in_game: 0,
+			order_number: orderNumber,
+		};
+	});
+
+	return newCard;
+};
 
 // ============================================================
 // REMOVE EVENT CARD FROM DECK
 // ============================================================
 
-export const removeEventCardFromDeck =
-	async (
-		gameId: number,
-		deckId: number
-	): Promise<void> => {
-		if (
-			!Number.isInteger(gameId) ||
-			gameId <= 0
-		) {
-			throw new Error(
-				'Некоректний ID гри.'
-			);
-		}
+export const removeEventCardFromDeck = async (
+	gameId: number,
+	deckId: number
+): Promise<void> => {
+	if (!Number.isInteger(gameId) || gameId <= 0) {
+		throw new Error('Некоректний ID гри.');
+	}
 
-		if (
-			!Number.isInteger(deckId) ||
-			deckId <= 0
-		) {
-			throw new Error(
-				'Некоректний ID елемента колоди.'
-			);
-		}
+	if (!Number.isInteger(deckId) || deckId <= 0) {
+		throw new Error('Некоректний ID елемента колоди.');
+	}
 
-		await db.withTransactionAsync(
-			async () => {
-				await requireGame(
-					gameId
-				);
+	await requireGame(gameId);
 
-				await deleteEventDeckCard(
-					deckId
-				);
-			}
-		);
-	};
+	await deleteEventDeckCard(gameId, deckId);
+};
 
 
 // ============================================================
 // SET EVENT CARD REMAINS IN GAME
 // ============================================================
 
-export const setEventCardRemainsInGame =
-	async (
-		gameId: number,
-		deckId: number,
-		remainsInGame: boolean
-	): Promise<boolean> => {
-		if (
-			!Number.isInteger(gameId) ||
-			gameId <= 0
-		) {
-			throw new Error(
-				'Некоректний ID гри.'
-			);
-		}
+export const setEventCardRemainsInGame = async (
+	gameId: number,
+	deckId: number,
+	remainsInGame: boolean
+): Promise<boolean> => {
+	if (!Number.isInteger(gameId) || gameId <= 0) {
+		throw new Error('Некоректний ID гри.');
+	}
 
-		if (
-			!Number.isInteger(deckId) ||
-			deckId <= 0
-		) {
-			throw new Error(
-				'Некоректний ID елемента колоди.'
-			);
-		}
+	if (!Number.isInteger(deckId) || deckId <= 0) {
+		throw new Error('Некоректний ID елемента колоди.');
+	}
 
-		const newValue:
-			0 | 1 =
-			remainsInGame ? 1 : 0;
+	await requireGame(gameId);
 
-		await db.withTransactionAsync(
-			async () => {
-				await requireGame(
-					gameId
-				);
+	const newValue: 0 | 1 = remainsInGame ? 1 : 0;
 
-				await updateEventCardRemainsInGame(
-					deckId,
-					newValue
-				);
-			}
-		);
+	await updateEventCardRemainsInGame(
+		gameId,
+		deckId,
+		newValue
+	);
 
-		return remainsInGame;
-	};
-
+	return remainsInGame;
+};
 
 // ============================================================
 // SAVE GAMES SCREEN
@@ -3230,7 +3289,7 @@ export const saveShipScreen = async (
 		}
 	}
 
-	await db.withTransactionAsync(async () => {
+	await runInTransaction(async () => {
 		await requireGame(gameId);
 
 		const ship = await getShip(gameId);
@@ -3306,7 +3365,7 @@ export const addTaskCardToDeck = async (
 		done: 0,
 	};
 
-	await db.withTransactionAsync(async () => {
+	await runInTransaction(async () => {
 		await requireGame(gameId);
 
 		const existingCards = await getTaskCards(gameId);
@@ -3349,7 +3408,7 @@ export const removeTaskCardFromDeck = async (
 		throw new Error('Некоректний ID картки.');
 	}
 
-	await db.withTransactionAsync(async () => {
+	await runInTransaction(async () => {
 		await requireGame(gameId);
 
 		await requireTaskCard(
@@ -3379,7 +3438,7 @@ export const setTaskCardDone = async (
 
 	let updatedCard: TaskCard;
 
-	await db.withTransactionAsync(async () => {
+	await runInTransaction(async () => {
 		await requireGame(gameId);
 
 		const card = await requireTaskCard(
@@ -3477,3 +3536,141 @@ export async function getEditPlayersScreen(
 		),
 	};
 }
+
+
+// ============================================================
+// LAYOUT GAME SCREEN
+// ============================================================
+
+export const getLayoutGameScreen = async (
+	gameId: number
+): Promise<LayoutGameScreenData> => {
+	if (!Number.isInteger(gameId) || gameId <= 0) {
+		throw new Error('Некоректний ID гри.');
+	}
+
+	const game = await requireGame(gameId);
+
+	const [
+		players,
+		ship,
+		goods,
+		chestGoods,
+		adventureCards,
+		characters,
+		abilityCards,
+		experienceCards,
+		taskCards,
+		eventCards,
+		eventDeck,
+	] = await Promise.all([
+		getPlayers(gameId),
+		getShip(gameId),
+		getGoods(),
+		getChestGoods(gameId),
+		getAdventureCards(gameId),
+		getCharactersWithNames(gameId),
+		getAbilityCards(),
+		getAllExperienceCards(),
+		getTaskCards(gameId),
+		getEventCards(),
+		getEventDeck(gameId),
+	]);
+
+	const chestState = new Map(
+		chestGoods.map((item) => [
+			item.goods_id,
+			item.activated === 1,
+		])
+	);
+
+	const chestUnifiedGoods = goods
+		.filter((good) => chestState.has(good.id))
+		.map((good) => ({
+			id: good.id,
+			name: good.name,
+			type: good.type,
+			activated: chestState.get(good.id) ?? false,
+			isTotem: good.type
+				.toLowerCase()
+				.includes('тотем'),
+			source: 'chest' as const,
+		}));
+
+	const adventureUnifiedGoods = adventureCards.map((card) => ({
+		id: card.id,
+		name: card.name,
+		type: card.type,
+		activated: card.activated === 1,
+		isTotem: card.totem === 1,
+		source: 'adventure' as const,
+	}));
+
+	const eventCardsWithOrder = eventDeck
+		.map((deckCard) => {
+			const eventCard = eventCards.find(
+				(card) => card.id === deckCard.event_card_id
+			);
+
+			if (!eventCard) {
+				return null;
+			}
+
+			return {
+				id: deckCard.id,
+				name: eventCard.name,
+				type: eventCard.type,
+				property_constantly: eventCard.property_constantly,
+				order_number: deckCard.order_number,
+				remains_in_game: deckCard.remains_in_game,
+			};
+		})
+		.filter(
+			(
+				card
+			): card is {
+				id: number;
+				name: string;
+				type: string;
+				property_constantly: string | number | boolean;
+				order_number: number;
+				remains_in_game: number;
+			} => card !== null
+		);
+
+	return {
+		game: {
+			id: game.id,
+			game_name: game.game_name,
+			number_of_players: game.number_of_players,
+			difficulty_level: game.difficulty_level,
+			experience: game.experience,
+			number_of_losses: game.number_of_losses,
+			win: game.win,
+			current_player_id: game.current_player_id,
+		},
+
+		players: players.map((player) => ({
+			id: player.id,
+			name: player.name,
+			team_tokens: player.team_tokens,
+			ability_card_id_1: player.ability_card_id_1,
+			ability_card_id_2: player.ability_card_id_2,
+			ability_card_id_3: player.ability_card_id_3,
+		})),
+
+		ship,
+
+		allGoods: [
+			...chestUnifiedGoods,
+			...adventureUnifiedGoods,
+		],
+
+		characters,
+		abilityCards,
+		experienceCards,
+		taskCards,
+
+		eventCards: eventCardsWithOrder,
+	};
+};

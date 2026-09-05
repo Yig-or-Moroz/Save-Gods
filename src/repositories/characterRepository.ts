@@ -621,6 +621,16 @@ export async function getExperienceCardsForCharacterNames(
 	);
 }
 
+export async function getAllExperienceCards(): Promise<ExperienceCard[]> {
+	return db.getAllAsync<ExperienceCard>(`
+    SELECT
+      id,
+      name,
+      character_name_id
+    FROM experience_cards
+    ORDER BY name ASC;
+  `);
+}
 /* ============================================================
 	CHARACTER NAMES
 	============================================================ */
@@ -661,3 +671,4 @@ export async function getPlayableCharacterNames(): Promise<
     `
 	);
 }
+

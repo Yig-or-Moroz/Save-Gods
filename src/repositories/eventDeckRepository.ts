@@ -88,33 +88,44 @@ export const addEventDeckCard = async (
  * Видаляє карту з колоди подій.
  */
 export const deleteEventDeckCard = async (
+	gameId: number,
 	deckId: number
 ): Promise<void> => {
-	await db.runAsync(
+	const result = await db.runAsync(
 		`
       DELETE FROM event_decks
-      WHERE id = ?;
+      WHERE game_id = ? AND id = ?;
     `,
-		[deckId]
+		[gameId, deckId]
 	);
+
+	if (result.changes === 0) {
+		throw new Error(
+			`Елемент колоди подій з ID ${deckId} не знайдено у цій грі.`
+		);
+	}
 };
 
 /**
  * Змінює стан remains_in_game.
  */
 export const updateEventCardRemainsInGame = async (
+	gameId: number,
 	deckId: number,
 	remainsInGame: 0 | 1
 ): Promise<void> => {
-	await db.runAsync(
+	const result = await db.runAsync(
 		`
       UPDATE event_decks
       SET remains_in_game = ?
-      WHERE id = ?;
+      WHERE game_id = ? AND id = ?;
     `,
-		[
-			remainsInGame,
-			deckId,
-		]
+		[remainsInGame, gameId, deckId]
 	);
+
+	if (result.changes === 0) {
+		throw new Error(
+			`Елемент колоди подій з ID ${deckId} не знайдено у цій грі.`
+		);
+	}
 };

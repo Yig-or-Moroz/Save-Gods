@@ -1,5 +1,12 @@
 import React from 'react';
-import { View, Text, Image, ImageBackground, StyleSheet } from 'react-native';
+
+import {
+	View,
+	Text,
+	Image,
+	ImageBackground,
+	StyleSheet,
+} from 'react-native';
 
 import DamageBackgroundImage from '../../assets/images/damage-token.webp';
 import FatigueBackgroundImage from '../../assets/images/fatigue-token-front.webp';
@@ -12,11 +19,14 @@ import LowMoraleBackgroundImage from '../../assets/images/status-low-morale.webp
 import XPCostBackgroundImage from '../../assets/images/xp-cost.webp';
 import AbilityCardBackgroundImage from '../../assets/images/abilityCard.png';
 
+// ---------- ТИПИ ----------
+
 type CharacterData = {
 	id: number;
 	game_id: number;
-	player_id: number;
+	player_id: number | null;
 	character_name_id: number;
+
 	damage: number;
 	fatigue: number;
 	fright: number;
@@ -24,8 +34,10 @@ type CharacterData = {
 	poisoning: number;
 	weakness: number;
 	low_morale: number;
+
 	ability_card_id_1: number | null;
 	ability_card_id_2: number | null;
+
 	experience_card_id_1: number | null;
 	experience_card_id_2: number | null;
 	experience_card_id_3: number | null;
@@ -49,40 +61,79 @@ type Props = {
 	experienceCards: ExperienceCard[];
 };
 
-const CharacterView = ({ character, characterName, abilityCards, experienceCards }: Props) => {
-	const getAbilityName = (id: number | null) => {
-		if (!id) return null;
-		const card = abilityCards.find((c) => c.id === id);
-		return card ? card.name : null;
-	};
+// ---------- КОМПОНЕНТ ----------
 
-	const getExperienceName = (id: number | null) => {
-		if (!id) return null;
-		const card = experienceCards.find((c) => c.id === id);
+const CharacterView = ({
+	character,
+	characterName,
+	abilityCards,
+	experienceCards,
+}: Props) => {
+	// ---------- КАРТКИ ЗДІБНОСТЕЙ ----------
+
+	const getAbilityName = (id: number | null) => {
+		if (!id) {
+			return null;
+		}
+
+		const card = abilityCards.find(
+			(item) => item.id === id
+		);
+
 		return card ? card.name : null;
 	};
 
 	const abilityNames = [
 		getAbilityName(character.ability_card_id_1),
 		getAbilityName(character.ability_card_id_2),
-	].filter(Boolean);
+	].filter((name): name is string => Boolean(name));
+
+	// ---------- КАРТКИ ДОСВІДУ ----------
+
+	const getExperienceName = (id: number | null) => {
+		if (!id) {
+			return null;
+		}
+
+		const card = experienceCards.find(
+			(item) => item.id === id
+		);
+
+		return card ? card.name : null;
+	};
 
 	const experienceIds = [
 		character.experience_card_id_1,
 		character.experience_card_id_2,
 		character.experience_card_id_3,
 	];
-	const experienceNames = experienceIds.map((id) => getExperienceName(id)).filter(Boolean);
 
-	const hasDamageOrFatigue = character.damage > 0 || character.fatigue > 0;
-	const hasStates = character.fright === 1 || character.madness === 1 || character.poisoning === 1 ||
-		character.weakness === 1 || character.low_morale === 1;
+	const experienceNames = experienceIds
+		.map((id) => getExperienceName(id))
+		.filter((name): name is string => Boolean(name));
 
-	const hasAnyStatus = hasDamageOrFatigue || hasStates;
+	// ---------- СТАН ПЕРСОНАЖА ----------
+
+	const hasDamageOrFatigue =
+		character.damage > 0 ||
+		character.fatigue > 0;
+
+	const hasStates =
+		character.fright === 1 ||
+		character.madness === 1 ||
+		character.poisoning === 1 ||
+		character.weakness === 1 ||
+		character.low_morale === 1;
+
+	const hasAnyStatus =
+		hasDamageOrFatigue || hasStates;
+
+	// ---------- UI ----------
 
 	return (
 		<View style={styles.container}>
 			{/* Єдиний рядок для damage/fatigue та states */}
+
 			{hasAnyStatus && (
 				<View style={styles.row}>
 					{character.damage > 0 && (
@@ -91,16 +142,24 @@ const CharacterView = ({ character, characterName, abilityCards, experienceCards
 							style={styles.damageBackground}
 							resizeMode="contain"
 						>
-							<Text style={styles.labelDamage}>{character.damage}</Text>
+							<Text style={styles.labelDamage}>
+								{character.damage}
+							</Text>
 						</ImageBackground>
 					)}
+
 					{character.fatigue > 0 && (
 						<ImageBackground
-							source={character.fatigue === 1 ? FatigueBackgroundImage : FatigueTokensBackgroundImage}
+							source={
+								character.fatigue === 1
+									? FatigueBackgroundImage
+									: FatigueTokensBackgroundImage
+							}
 							style={styles.fatigueBackground}
 							resizeMode="contain"
 						/>
 					)}
+
 					{character.fright === 1 && (
 						<View style={styles.iconWithLabel}>
 							<Image
@@ -110,6 +169,7 @@ const CharacterView = ({ character, characterName, abilityCards, experienceCards
 							/>
 						</View>
 					)}
+
 					{character.madness === 1 && (
 						<View style={styles.iconWithLabel}>
 							<Image
@@ -119,6 +179,7 @@ const CharacterView = ({ character, characterName, abilityCards, experienceCards
 							/>
 						</View>
 					)}
+
 					{character.poisoning === 1 && (
 						<View style={styles.iconWithLabel}>
 							<Image
@@ -128,6 +189,7 @@ const CharacterView = ({ character, characterName, abilityCards, experienceCards
 							/>
 						</View>
 					)}
+
 					{character.weakness === 1 && (
 						<View style={styles.iconWithLabel}>
 							<Image
@@ -137,6 +199,7 @@ const CharacterView = ({ character, characterName, abilityCards, experienceCards
 							/>
 						</View>
 					)}
+
 					{character.low_morale === 1 && (
 						<View style={styles.iconWithLabel}>
 							<Image
@@ -150,42 +213,52 @@ const CharacterView = ({ character, characterName, abilityCards, experienceCards
 			)}
 
 			{/* Повідомлення, якщо немає нічого */}
+
 			{!hasAnyStatus && (
 				<View style={styles.messageContainer}>
 					<Text style={styles.noStates}>
 						{character.character_name_id < 5
 							? `${characterName} здорова, сповнена сил та енергії і готова до пригод.`
-							: `${characterName} здоровий, сповнений сил та енергії і готовий до пригод.`
-						}
+							: `${characterName} здоровий, сповнений сил та енергії і готовий до пригод.`}
 					</Text>
 				</View>
 			)}
 
 			{/* Картки здібностей */}
+
 			{abilityNames.length > 0 && (
 				<View style={styles.section}>
 					{abilityNames.map((name, index) => (
-						<Text key={index} style={styles.listItem}>
+						<Text
+							key={`${character.id}-ability-${index}`}
+							style={styles.listItem}
+						>
 							<Image
 								source={AbilityCardBackgroundImage}
 								style={styles.abilityCard}
 								resizeMode="contain"
-							/> {name}
+							/>{' '}
+							{name}
 						</Text>
 					))}
 				</View>
 			)}
 
 			{/* Картки досвіду */}
+
 			{experienceNames.length > 0 && (
 				<View style={styles.section}>
 					{experienceNames.map((name, index) => (
-						<Text key={index} style={styles.xpcardText}>
+						<Text
+							key={`${character.id}-experience-${index}`}
+							style={styles.xpcardText}
+						>
 							<Image
 								source={XPCostBackgroundImage}
 								style={styles.xpcard}
 								resizeMode="contain"
-							/> {name}
+							/>{' '}
+							{name}
 						</Text>
 					))}
 				</View>
@@ -194,12 +267,15 @@ const CharacterView = ({ character, characterName, abilityCards, experienceCards
 	);
 };
 
+// ---------- СТИЛІ ----------
+
 const styles = StyleSheet.create({
 	container: {
 		backgroundColor: '#f5f0e8',
 		padding: 16,
 		borderRadius: 8,
 	},
+
 	row: {
 		flex: 1,
 		flexDirection: 'row',
@@ -209,45 +285,57 @@ const styles = StyleSheet.create({
 		flexWrap: 'wrap',
 		rowGap: 10,
 	},
+
 	damageBackground: {
 		width: 60,
 		height: 65,
 		justifyContent: 'center',
 		alignItems: 'center',
 	},
+
 	fatigueBackground: {
 		width: 80,
 		height: 65,
 	},
+
 	iconWithLabel: {
 		width: 60,
 		height: 60,
 	},
+
 	img: {
 		width: '100%',
 		height: '100%',
 	},
+
 	labelDamage: {
 		fontSize: 32,
 		fontFamily: 'Kyiv-Machine',
 		color: '#fff',
 		textShadowColor: '#000',
-		textShadowOffset: { width: 2, height: 1 },
+		textShadowOffset: {
+			width: 2,
+			height: 1,
+		},
 		textShadowRadius: 3,
 	},
+
 	messageContainer: {
 		alignItems: 'center',
 		marginBottom: 20,
 	},
+
 	noStates: {
 		fontSize: 16,
 		fontFamily: 'Kyiv-Machine',
 		color: '#888',
 		textAlign: 'center',
 	},
+
 	section: {
 		marginTop: 8,
 	},
+
 	listItem: {
 		fontSize: 20,
 		fontFamily: 'Kyiv-Machine',
@@ -255,16 +343,19 @@ const styles = StyleSheet.create({
 		marginLeft: 8,
 		alignItems: 'center',
 	},
+
 	xpcard: {
 		width: 26,
 		height: 26,
 	},
+
 	xpcardText: {
 		fontSize: 20,
 		fontFamily: 'Kyiv-Machine',
 		color: '#983627',
 		marginLeft: 8,
 	},
+
 	abilityCard: {
 		width: 18,
 		height: 26,

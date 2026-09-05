@@ -2,7 +2,6 @@ import {
 	CharacterName,
 	AbilityCard,
 	Good,
-	EventCard,
 	ExperienceCard,
 } from '../models/types';
 
@@ -131,8 +130,15 @@ export const GOODS: Good[] = [
 	{ id: 54, name: "Панійський щит", type: 'Спорядження' }
 ];
 
+type StaticEventCard = {
+	id: number;
+	name: string;
+	type: string;
+	property_constantly: boolean;
+};
+
 // ===== КАРТИ ПОДІЙ =====
-export const EVENT_CARDS: EventCard[] = [
+export const EVENT_CARDS: StaticEventCard[] = [
 	{ id: 1, name: "Неймовірна течія", type: 'помірні', property_constantly: false },
 	{ id: 2, name: "Зокмерські торгівці", type: 'помірні', property_constantly: false },
 	{ id: 3, name: "Техобслуговування", type: 'помірні', property_constantly: false },

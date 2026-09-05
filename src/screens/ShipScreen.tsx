@@ -47,7 +47,7 @@ const ShipScreen = ({ navigation, route }: any) => {
 
 	useEffect(() => {
 		loadShipData();
-	}, []);
+	}, [gameId]);
 
 	const loadShipData = async () => {
 		try {

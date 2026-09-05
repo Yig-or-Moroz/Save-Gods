@@ -71,30 +71,44 @@ export const addAdventureCard = async (
  * Видаляє карту пригод за її ID.
  */
 export const deleteAdventureCard = async (
+	gameId: number,
 	cardId: number
 ): Promise<void> => {
-	await db.runAsync(
+	const result = await db.runAsync(
 		`
       DELETE FROM adventure_decks
-      WHERE id = ?;
+      WHERE game_id = ? AND id = ?;
     `,
-		[cardId]
+		[gameId, cardId]
 	);
+
+	if (result.changes === 0) {
+		throw new Error(
+			`Карту пригоди з ID ${cardId} не знайдено у цій грі.`
+		);
+	}
 };
 
 /**
  * Змінює стан активації карти пригод.
  */
 export const updateAdventureCardActivated = async (
+	gameId: number,
 	cardId: number,
 	activated: 0 | 1
 ): Promise<void> => {
-	await db.runAsync(
+	const result = await db.runAsync(
 		`
       UPDATE adventure_decks
       SET activated = ?
-      WHERE id = ?;
+      WHERE game_id = ? AND id = ?;
     `,
-		[activated, cardId]
+		[activated, gameId, cardId]
 	);
+
+	if (result.changes === 0) {
+		throw new Error(
+			`Карту пригоди з ID ${cardId} не знайдено у цій грі.`
+		);
+	}
 };
