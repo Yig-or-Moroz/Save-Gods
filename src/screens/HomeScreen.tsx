@@ -1,4 +1,5 @@
 import React from 'react';
+
 import {
 	View,
 	Text,
@@ -6,18 +7,17 @@ import {
 	StyleSheet,
 	Image,
 } from 'react-native';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 
-const HomeScreen = ({ navigation }: any) => {  
-
-
+const HomeScreen = ({ navigation }: any) => {
 	const handleNewGame = () => {
-		navigation.navigate('NewGame');  
+		navigation.navigate('NewGame');
 	};
 
 	const handleLoadGame = () => {
-		navigation.navigate('LoadGame'); 
+		navigation.navigate('LoadGame');
 	};
 
 	const handleSaveGame = () => {
@@ -25,7 +25,7 @@ const HomeScreen = ({ navigation }: any) => {
 	};
 
 	return (
-		<SafeAreaView style={styles.container}>
+		<View style={styles.container}>
 			<LinearGradient
 				colors={[
 					'#01878a',
@@ -36,45 +36,66 @@ const HomeScreen = ({ navigation }: any) => {
 				end={{ x: 0, y: 1 }}
 				style={styles.gradient}
 			>
-				<View style={styles.content}>
-					<View style={styles.logoContainer}>
-						<Image
-							source={require('../../assets/images/logo.png')}
-							style={styles.img}
-							resizeMode="contain"
-						/>
-					</View>
+				<SafeAreaView style={styles.safeArea}>
+					<View style={styles.content}>
+						<View style={styles.logoContainer}>
+							<Image
+								source={require('../../assets/images/logo.png')}
+								style={styles.img}
+								resizeMode="contain"
+							/>
+						</View>
 
-					<View style={styles.buttonWrapper}>
-						<View style={styles.buttonGroup}>
-							<TouchableOpacity style={styles.button} onPress={handleNewGame}>
-								<Text style={styles.buttonText}>Нова гра</Text>
-							</TouchableOpacity>
+						<View style={styles.buttonWrapper}>
+							<View style={styles.buttonGroup}>
+								<TouchableOpacity
+									style={styles.button}
+									onPress={handleNewGame}
+								>
+									<Text style={styles.buttonText}>
+										Нова гра
+									</Text>
+								</TouchableOpacity>
 
-							<TouchableOpacity style={styles.button} onPress={handleLoadGame}>
-								<Text style={styles.buttonText}>Розкласти гру</Text>
-							</TouchableOpacity>
+								<TouchableOpacity
+									style={styles.button}
+									onPress={handleLoadGame}
+								>
+									<Text style={styles.buttonText}>
+										Розкласти гру
+									</Text>
+								</TouchableOpacity>
 
-							<TouchableOpacity style={styles.button} onPress={handleSaveGame}>
-								<Text style={styles.buttonText}>Зберегти гру</Text>
-							</TouchableOpacity>
+								<TouchableOpacity
+									style={styles.button}
+									onPress={handleSaveGame}
+								>
+									<Text style={styles.buttonText}>
+										Зберегти гру
+									</Text>
+								</TouchableOpacity>
+							</View>
 						</View>
 					</View>
-				</View>
+				</SafeAreaView>
 			</LinearGradient>
-		</SafeAreaView>
+		</View>
 	);
 };
-
 
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		backgroundColor: '#e8ddc9',
 	},
+
 	gradient: {
 		flex: 1,
 	},
+
+	safeArea: {
+		flex: 1,
+	},
+
 	content: {
 		flex: 1,
 		flexDirection: 'column',
@@ -83,27 +104,32 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 30,
 		paddingVertical: 100,
 	},
+
 	logoContainer: {
 		width: '100%',
 		height: 120,
 	},
+
 	img: {
 		width: '100%',
-		height: '100%',          // займає всю висоту контейнера
+		height: '100%',
 		resizeMode: 'contain',
 	},
+
 	buttonWrapper: {
-		flex: 1,                 // займає весь вільний простір після логотипу
+		flex: 1,
 		width: '100%',
-		justifyContent: 'center', // центруємо дочірній buttonGroup по вертикалі
+		justifyContent: 'center',
 		alignItems: 'center',
 	},
+
 	buttonGroup: {
 		width: '100%',
 		maxWidth: 300,
 		gap: 16,
-		paddingBottom: 20,      // невеликий відступ знизу (опціонально)
+		paddingBottom: 20,
 	},
+
 	button: {
 		paddingVertical: 16,
 		borderRadius: 12,
@@ -111,6 +137,7 @@ const styles = StyleSheet.create({
 		justifyContent: 'center',
 		backgroundColor: '#004d57',
 	},
+
 	buttonText: {
 		fontSize: 20,
 		color: '#ffffff',

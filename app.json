@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "my-game",
+    "name": "Save Gods",
     "slug": "my-game",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -10,7 +10,7 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#1a1a2e"
     },
     "ios": {
       "supportsTablet": true
@@ -18,9 +18,10 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#1a1a2e"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.yigormoroz.mygame"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -28,6 +29,11 @@
     "plugins": [
       "expo-sqlite",
       "expo-font"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "5623c3f4-217b-448e-950e-54377fec7908"
+      }
+    }
   }
 }
