@@ -13,7 +13,7 @@ import {
 } from './staticData';
 
 const DATABASE_NAME = 'savegods.db';
-const DATABASE_VERSION = 3;
+const DATABASE_VERSION = 4;
 
 export const db = SQLite.openDatabaseSync(DATABASE_NAME);
 
@@ -86,7 +86,9 @@ function createSchema(): void {
 
     CREATE TABLE IF NOT EXISTS character_names (
       id INTEGER PRIMARY KEY,
-      name TEXT NOT NULL UNIQUE
+      name TEXT NOT NULL UNIQUE,
+      crew_member_abilities INTEGER NOT NULL DEFAULT 0
+        CHECK (crew_member_abilities BETWEEN 0 AND 3)
     );
 
     CREATE TABLE IF NOT EXISTS ability_cards (
@@ -258,6 +260,9 @@ function createSchema(): void {
 
       low_morale INTEGER NOT NULL DEFAULT 0
         CHECK (low_morale >= 0),
+
+      crew_abilities INTEGER NOT NULL DEFAULT 0
+        CHECK (crew_abilities BETWEEN 0 AND 2),
 
       /*
        * Ability cards
@@ -541,11 +546,16 @@ function seedStaticData(): void {
 		for (const character of CHARACTER_NAMES) {
 			db.runSync(
 				`
-          INSERT OR IGNORE INTO character_names (id, name)
-          VALUES (?, ?);
+          INSERT OR IGNORE INTO character_names (
+            id,
+            name,
+            crew_member_abilities
+          )
+          VALUES (?, ?, ?);
         `,
 				character.id,
-				character.name
+				character.name,
+				character.crew_member_abilities
 			);
 		}
 

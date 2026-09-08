@@ -15,6 +15,7 @@ export type SqlBoolean = 0 | 1;
 export interface CharacterName {
 	id: number;
 	name: string;
+	crew_member_abilities: number;
 }
 
 export interface AbilityCard {
@@ -81,10 +82,6 @@ export interface Character {
 	id: number;
 	game_id: number;
 
-	/**
-	 * NULL тільки для Капітана Софі Одеси
-	 * (character_name_id = 1).
-	 */
 	player_id: number | null;
 
 	character_name_id: number;
@@ -96,6 +93,7 @@ export interface Character {
 	poisoning: number;
 	weakness: number;
 	low_morale: number;
+	crew_abilities: number;
 
 	ability_card_id_1: number | null;
 	ability_card_id_2: number | null;

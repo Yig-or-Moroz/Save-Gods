@@ -34,6 +34,7 @@ type CharacterData = {
 	poisoning: number;
 	weakness: number;
 	low_morale: number;
+	crew_abilities: number;
 	ability_card_id_1: number | null;
 	ability_card_id_2: number | null;
 	experience_card_id_1: number | null;
@@ -66,78 +67,177 @@ const PlayerView = ({
 	abilityCards,
 	experienceCards,
 }: Props) => {
-	const getAbilityName = (id: number | null) => {
-		if (!id) return null;
+	const getAbilityName = (
+		id: number | null
+	) => {
+		if (!id) {
+			return null;
+		}
 
-		const card = abilityCards.find((item) => item.id === id);
+		const card = abilityCards.find(
+			(item) => item.id === id
+		);
 
-		return card ? card.name : null;
+		return card
+			? card.name
+			: null;
 	};
 
 	const abilityNames = [
-		getAbilityName(player.ability_card_id_1),
-		getAbilityName(player.ability_card_id_2),
-		getAbilityName(player.ability_card_id_3),
-	].filter((name): name is string => Boolean(name));
-
-	const playerCharacters = characters.filter(
-		(character) => character.player_id === player.id
+		getAbilityName(
+			player.ability_card_id_1
+		),
+		getAbilityName(
+			player.ability_card_id_2
+		),
+		getAbilityName(
+			player.ability_card_id_3
+		),
+	].filter(
+		(name): name is string =>
+			Boolean(name)
 	);
 
+	const playerCharacters =
+		characters.filter(
+			(character) =>
+				character.player_id ===
+				player.id
+		);
+
+	const hasTeamTokens =
+		player.team_tokens > 0;
+
+	const hasAbilityCards =
+		abilityNames.length > 0;
+
+	const hasTokensOrAbilities =
+		hasTeamTokens ||
+		hasAbilityCards;
+
 	return (
-		<View style={styles.container}>
-			{player.team_tokens > 0 && (
-				<View style={styles.tokensContainer}>
+		<View
+			style={styles.container}
+		>
+			{/* ================================================= */}
+			{/* TEAM TOKENS */}
+			{/* ================================================= */}
+
+			{hasTeamTokens && (
+				<View
+					style={
+						styles.tokensContainer
+					}
+				>
 					<ImageBackground
-						source={CommandTokenBackgroundImage}
-						style={styles.tokenBackground}
+						source={
+							CommandTokenBackgroundImage
+						}
+						style={
+							styles.tokenBackground
+						}
 						resizeMode="contain"
 					>
-						<Text style={styles.tokenText}>
+						<Text
+							style={
+								styles.tokenText
+							}
+						>
 							{player.team_tokens}
 						</Text>
 					</ImageBackground>
 				</View>
 			)}
 
-			{abilityNames.length > 0 && (
-				<View style={styles.section}>
-					{abilityNames.map((name, index) => (
-						<Text
-							key={`${player.id}-ability-${index}`}
-							style={styles.listItem}
-						>
-							<Image
-								source={AbilityCardBackgroundImage}
-								style={styles.abilityCard}
-								resizeMode="contain"
-							/>{' '}
-							{name}
-						</Text>
-					))}
+			{/* ================================================= */}
+			{/* ABILITY CARDS */}
+			{/* ================================================= */}
+
+			{hasAbilityCards && (
+				<View
+					style={styles.section}
+				>
+					{abilityNames.map(
+						(name, index) => (
+							<Text
+								key={`${player.id}-ability-${index}`}
+								style={
+									styles.listItem
+								}
+							>
+								<Image
+									source={
+										AbilityCardBackgroundImage
+									}
+									style={
+										styles.abilityCard
+									}
+									resizeMode="contain"
+								/>{' '}
+								{name}
+							</Text>
+						)
+					)}
 				</View>
 			)}
 
-			{playerCharacters.length > 0 ? (
-				playerCharacters.map((character) => (
-					<View
-						key={character.id}
-						style={styles.characterBlock}
-					>
-						<Text style={styles.characterName}>
-							{character.name}
-						</Text>
+			{/* ================================================= */}
+			{/* NO TOKENS / NO ABILITY CARDS */}
+			{/* ================================================= */}
 
-						<CharacterView
-							character={character}
-							characterName={character.name}
-							abilityCards={abilityCards}
-							experienceCards={experienceCards}
-						/>
-					</View>
-				))
+			{!hasTokensOrAbilities && (
+				<Text
+					style={
+						styles.noTokensOrAbilities
+					}
+				>
+					В {player.name} немає ні жетонів
+					команди ні карток здібностей
+				</Text>
+			)}
+
+			{/* ================================================= */}
+			{/* CHARACTERS */}
+			{/* ================================================= */}
+
+			{playerCharacters.length > 0 ? (
+				playerCharacters.map(
+					(character) => (
+						<View
+							key={character.id}
+							style={
+								styles.characterBlock
+							}
+						>
+							<Text
+								style={
+									styles.characterName
+								}
+							>
+								{character.name}
+							</Text>
+
+							<CharacterView
+								character={character}
+								characterName={
+									character.name
+								}
+								abilityCards={
+									abilityCards
+								}
+								experienceCards={
+									experienceCards
+								}
+							/>
+						</View>
+					)
+				)
 			) : (
-				<Text style={styles.noCharacters}>
+				<Text
+					style={
+						styles.noCharacters
+					}
+				>
 					У гравця немає персонажів
 				</Text>
 			)}
@@ -170,7 +270,10 @@ const styles = StyleSheet.create({
 		color: '#fff',
 		marginBottom: 16,
 		textShadowColor: '#000',
-		textShadowOffset: { width: 2, height: 0 },
+		textShadowOffset: {
+			width: 2,
+			height: 0,
+		},
 		textShadowRadius: 3,
 	},
 
@@ -194,6 +297,16 @@ const styles = StyleSheet.create({
 		borderRadius: 4,
 		borderWidth: 1.5,
 		borderColor: '#ba5740',
+	},
+
+	noTokensOrAbilities: {
+		fontSize: 16,
+		fontFamily: 'Kyiv-Machine',
+		color: '#888',
+		textAlign: 'center',
+		marginTop: 8,
+		marginHorizontal: 16,
+		lineHeight: 26,
 	},
 
 	characterBlock: {
@@ -221,3 +334,4 @@ const styles = StyleSheet.create({
 });
 
 export default PlayerView;
+

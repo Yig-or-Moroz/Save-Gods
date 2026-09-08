@@ -18,6 +18,7 @@ import FrightenedBackgroundImage from '../../assets/images/status-frightened.web
 import LowMoraleBackgroundImage from '../../assets/images/status-low-morale.webp';
 import XPCostBackgroundImage from '../../assets/images/xp-cost.webp';
 import AbilityCardBackgroundImage from '../../assets/images/abilityCard.png';
+import CrewAbilityImage from '../../assets/images/command-cost.webp';
 
 // ---------- ТИПИ ----------
 
@@ -34,6 +35,7 @@ type CharacterData = {
 	poisoning: number;
 	weakness: number;
 	low_morale: number;
+	crew_abilities: number;
 
 	ability_card_id_1: number | null;
 	ability_card_id_2: number | null;
@@ -125,8 +127,12 @@ const CharacterView = ({
 		character.weakness === 1 ||
 		character.low_morale === 1;
 
+	const hasCrewAbilities =
+		character.crew_abilities === 1 ||
+		character.crew_abilities === 2;
+
 	const hasAnyStatus =
-		hasDamageOrFatigue || hasStates;
+		hasDamageOrFatigue || hasStates || hasCrewAbilities;
 
 	// ---------- UI ----------
 
@@ -207,6 +213,37 @@ const CharacterView = ({
 								style={styles.img}
 								resizeMode="contain"
 							/>
+						</View>
+					)}
+
+					{character.crew_abilities > 0 && (
+						<View
+							style={[
+								styles.iconWithLabel,
+								character.crew_abilities === 2 &&
+									styles.crewAbilityIconWithLabel,
+						]}
+						>
+							{character.crew_abilities === 1 ? (
+								<Image
+									source={CrewAbilityImage}
+									style={styles.img}
+									resizeMode="contain"
+								/>
+							) : (
+								<>
+									<Image
+										source={CrewAbilityImage}
+										style={styles.crewAbilityImg}
+										resizeMode="contain"
+									/>
+									<Image
+										source={CrewAbilityImage}
+										style={styles.crewAbilityImg}
+										resizeMode="contain"
+									/>
+								</>
+							)}
 						</View>
 					)}
 				</View>
@@ -300,6 +337,18 @@ const styles = StyleSheet.create({
 
 	iconWithLabel: {
 		width: 60,
+		height: 60,
+	},
+
+	crewAbilityIconWithLabel: {
+		width: 90,
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
+
+	crewAbilityImg: {
+		width: 45,
 		height: 60,
 	},
 

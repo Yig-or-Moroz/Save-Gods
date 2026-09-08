@@ -13,6 +13,7 @@ import {
  */
 export type CharacterWithName = Character & {
 	name: string;
+	crew_member_abilities: number;
 };
 
 /**
@@ -31,6 +32,7 @@ export type CharacterUpdate = {
 	poisoning?: number;
 	weakness?: number;
 	lowMorale?: number;
+	crewAbilities?: number;
 
 	abilityCardId1?: number | null;
 	abilityCardId2?: number | null;
@@ -96,6 +98,10 @@ const CHARACTER_UPDATE_FIELDS: CharacterUpdateField[] = [
 		column: 'low_morale',
 	},
 	{
+		key: 'crewAbilities',
+		column: 'crew_abilities',
+	},
+	{
 		key: 'abilityCardId1',
 		column: 'ability_card_id_1',
 	},
@@ -141,6 +147,7 @@ export async function getCharacters(
         poisoning,
         weakness,
         low_morale,
+        crew_abilities,
         ability_card_id_1,
         ability_card_id_2,
         experience_card_id_1,
@@ -174,12 +181,14 @@ export async function getCharactersWithNames(
         c.poisoning,
         c.weakness,
         c.low_morale,
+        c.crew_abilities,
         c.ability_card_id_1,
         c.ability_card_id_2,
         c.experience_card_id_1,
         c.experience_card_id_2,
         c.experience_card_id_3,
-        cn.name
+        cn.name,
+        cn.crew_member_abilities
       FROM characters c
       INNER JOIN character_names cn
         ON cn.id = c.character_name_id
@@ -211,12 +220,14 @@ export async function getCharactersForPlayer(
         c.poisoning,
         c.weakness,
         c.low_morale,
+        c.crew_abilities,
         c.ability_card_id_1,
         c.ability_card_id_2,
         c.experience_card_id_1,
         c.experience_card_id_2,
         c.experience_card_id_3,
-        cn.name
+        cn.name,
+        cn.crew_member_abilities
       FROM characters c
       INNER JOIN character_names cn
         ON cn.id = c.character_name_id
@@ -249,12 +260,14 @@ export async function getSophie(
         c.poisoning,
         c.weakness,
         c.low_morale,
+        c.crew_abilities,
         c.ability_card_id_1,
         c.ability_card_id_2,
         c.experience_card_id_1,
         c.experience_card_id_2,
         c.experience_card_id_3,
-        cn.name
+        cn.name,
+        cn.crew_member_abilities
       FROM characters c
       INNER JOIN character_names cn
         ON cn.id = c.character_name_id
@@ -286,6 +299,7 @@ export async function getCharacter(
         poisoning,
         weakness,
         low_morale,
+        crew_abilities,
         ability_card_id_1,
         ability_card_id_2,
         experience_card_id_1,

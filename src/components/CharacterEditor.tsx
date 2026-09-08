@@ -32,6 +32,7 @@ export type CharacterUpdateData = {
    poisoning: number;
    weakness: number;
    low_morale: number;
+	crew_abilities: number;
    ability_card_id_1: number | null;
    ability_card_id_2: number | null;
    experience_card_id_1: number | null;
@@ -41,6 +42,7 @@ export type CharacterUpdateData = {
 
 type Props = {
    character: CharacterData;
+	crewMemberAbilities: number;
    abilityCards: AbilityCard[];
    experienceCards: ExperienceCard[];
 };
@@ -53,6 +55,7 @@ const CharacterEditor = forwardRef<CharacterEditorRef, Props>(
    (
       {
          character,
+			crewMemberAbilities,
          abilityCards,
          experienceCards,
       },
@@ -102,6 +105,9 @@ const CharacterEditor = forwardRef<CharacterEditorRef, Props>(
          useState(
             character.low_morale === 1
          );
+
+      const [crewAbilities, setCrewAbilities] =
+         useState(character.crew_abilities);
 
       const [ability1, setAbility1] =
          useState<number | null>(
@@ -175,6 +181,34 @@ const CharacterEditor = forwardRef<CharacterEditorRef, Props>(
          fatigue1,
          fatigue2,
       ]);
+
+      // =================================================
+      // CREW ABILITIES
+      // =================================================
+
+      const toggleCrewAbility = (
+         index: 1 | 2
+      ) => {
+         setCrewAbilities((prev) => {
+            if (crewMemberAbilities === 1) {
+               return prev === 1 ? 0 : 1;
+            }
+
+            if (crewMemberAbilities === 2) {
+               return prev === 2 ? 0 : 2;
+            }
+
+            if (crewMemberAbilities === 3) {
+               if (index === 1) {
+                  return prev === 1 ? 0 : 1;
+               }
+
+               return prev === 2 ? 1 : 2;
+            }
+
+            return 0;
+         });
+      };
 
       // =================================================
       // EXPERIENCE CARDS
@@ -277,6 +311,9 @@ const CharacterEditor = forwardRef<CharacterEditorRef, Props>(
                low_morale:
                   lowMorale ? 1 : 0,
 
+               crew_abilities:
+                  crewAbilities,
+
                ability_card_id_1:
                   ability1,
 
@@ -314,6 +351,7 @@ const CharacterEditor = forwardRef<CharacterEditorRef, Props>(
             poisoning,
             weakness,
             lowMorale,
+            crewAbilities,
             ability1,
             ability2,
             selectedExperienceIds,
@@ -414,6 +452,52 @@ const CharacterEditor = forwardRef<CharacterEditorRef, Props>(
                         ]}
                      />
                   </TouchableOpacity>
+               </View>
+            </View>
+
+            {/* ========================================= */}
+            {/* CREW ABILITIES */}
+            {/* ========================================= */}
+
+            <View style={styles.field}>
+               <Text style={styles.label}>
+                  Активовані здібності екіпажу:
+               </Text>
+
+               <View style={styles.stateRow}>
+                  {crewMemberAbilities >= 1 && (
+                     <TouchableOpacity
+                        style={styles.stateItem}
+                        onPress={() =>
+                           toggleCrewAbility(1)
+                        }
+                     >
+                        <View
+                           style={[
+                              styles.checkbox,
+                              crewAbilities >= 1 &&
+                                 styles.checkboxChecked,
+                           ]}
+                        />
+                     </TouchableOpacity>
+                  )}
+
+                  {crewMemberAbilities >= 2 && (
+                     <TouchableOpacity
+                        style={styles.stateItem}
+                        onPress={() =>
+                           toggleCrewAbility(2)
+                        }
+                     >
+                        <View
+                           style={[
+                              styles.checkbox,
+                              crewAbilities >= 2 &&
+                                 styles.checkboxChecked,
+                           ]}
+                        />
+                     </TouchableOpacity>
+                  )}
                </View>
             </View>
 

@@ -220,6 +220,7 @@ export type PlayerCharacterSave = {
 	poisoning: number;
 	weakness: number;
 	lowMorale: number;
+	crewAbilities: number;
 
 	abilityCardId1: number | null;
 	abilityCardId2: number | null;
@@ -385,6 +386,7 @@ export type SaveCaptainScreenInput = {
 	poisoning: number;
 	weakness: number;
 	lowMorale: number;
+	crewAbilities: number;
 
 	abilityCardId1: number | null;
 	abilityCardId2: number | null;
@@ -1585,6 +1587,8 @@ export async function saveCaptainScreen(
 		abilityCardId1,
 		abilityCardId2,
 
+		crewAbilities,
+
 		experienceCardId1,
 		experienceCardId2,
 		experienceCardId3,
@@ -1643,6 +1647,16 @@ export async function saveCaptainScreen(
 		weakness,
 		lowMorale,
 	];
+
+	if (
+		!Number.isInteger(crewAbilities) ||
+		crewAbilities < 0 ||
+		crewAbilities > 2
+	) {
+		throw new Error(
+			'Активовані здібності екіпажу повинні мати значення від 0 до 2.'
+		);
+	}
 
 	for (
 		const value of stateValues
@@ -1778,6 +1792,7 @@ export async function saveCaptainScreen(
 					poisoning,
 					weakness,
 					lowMorale,
+					crewAbilities,
 
 					abilityCardId1,
 					abilityCardId2,
@@ -2164,6 +2179,9 @@ export async function savePlayerScreen(
 
 						lowMorale:
 							character.lowMorale,
+
+						crewAbilities:
+							character.crewAbilities,
 
 						abilityCardId1:
 							character.abilityCardId1,

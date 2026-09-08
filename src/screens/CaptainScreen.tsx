@@ -34,13 +34,17 @@ import {
 	saveCaptainScreen,
 } from '../services/gameService';
 
+type CaptainCharacterData = CharacterData & {
+	crew_member_abilities: number;
+};
+
 const CaptainScreen = ({ navigation, route }: any) => {
 	const { gameId } = route.params;
 
 	const [isLoading, setIsLoading] = useState(true);
 
 	const [characterData, setCharacterData] =
-		useState<CharacterData | null>(null);
+		useState<CaptainCharacterData | null>(null);
 
 	const [abilityCards, setAbilityCards] =
 		useState<AbilityCard[]>([]);
@@ -102,6 +106,7 @@ const CaptainScreen = ({ navigation, route }: any) => {
 				poisoning: updatedData.poisoning,
 				weakness: updatedData.weakness,
 				lowMorale: updatedData.low_morale,
+				crewAbilities: updatedData.crew_abilities,
 
 				abilityCardId1:
 					updatedData.ability_card_id_1,
@@ -212,6 +217,9 @@ const CaptainScreen = ({ navigation, route }: any) => {
 				<CharacterEditor
 					ref={editorRef}
 					character={characterData}
+					crewMemberAbilities={
+						characterData.crew_member_abilities
+					}
 					abilityCards={abilityCards}
 					experienceCards={experienceCards}
 				/>

@@ -7,15 +7,15 @@ import {
 
 // ===== ІМЕНА ПЕРСОНАЖІВ =====
 export const CHARACTER_NAMES: CharacterName[] = [
-	{ id: 1, name: 'Капітан Софі Одеса' },
-	{ id: 2, name: "Мак' Мара Джонсон" },
-	{ id: 3, name: 'Касумі Аошіма' },
-	{ id: 4, name: 'Одрі Вільямс' },
-	{ id: 5, name: 'Рафаель Вієйра' },
-	{ id: 6, name: 'Каннан Шарма' },
-	{ id: 7, name: 'Лоран Лапуант' },
-	{ id: 8, name: 'Марко Реєс' },
-	{ id: 9, name: 'Грегорі Літтл' },
+	{ id: 1, name: 'Капітан Софі Одеса', crew_member_abilities: 3 },
+	{ id: 2, name: "Мак' Мара Джонсон", crew_member_abilities: 2 },
+	{ id: 3, name: 'Касумі Аошіма', crew_member_abilities: 3 },
+	{ id: 4, name: 'Одрі Вільямс', crew_member_abilities: 2 },
+	{ id: 5, name: 'Рафаель Вієйра', crew_member_abilities: 3 },
+	{ id: 6, name: 'Каннан Шарма', crew_member_abilities: 2 },
+	{ id: 7, name: 'Лоран Лапуант', crew_member_abilities: 2 },
+	{ id: 8, name: 'Марко Реєс', crew_member_abilities: 1 },
+	{ id: 9, name: 'Грегорі Літтл', crew_member_abilities: 2 },
 ];
 
 // ===== КАРТИ ЗДІБНОСТЕЙ =====
