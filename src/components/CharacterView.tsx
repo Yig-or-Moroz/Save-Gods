@@ -255,8 +255,8 @@ const CharacterView = ({
 				<View style={styles.messageContainer}>
 					<Text style={styles.noStates}>
 						{character.character_name_id < 5
-							? `${characterName} здорова, сповнена сил та енергії і готова до пригод.`
-							: `${characterName} здоровий, сповнений сил та енергії і готовий до пригод.`}
+							? `${characterName} сповнена сил, а її дух готовий до мандрів: час діяти!`
+							: `${characterName} в ідеальній формі: жодних ран чи втоми, готовий до будь-якого виклику!`}
 					</Text>
 				</View>
 			)}

@@ -191,8 +191,8 @@ const PlayerView = ({
 						styles.noTokensOrAbilities
 					}
 				>
-					В {player.name} немає ні жетонів
-					команди ні карток здібностей
+					{player.name} немає жетонів
+					команди та карток здібностей
 				</Text>
 			)}
 

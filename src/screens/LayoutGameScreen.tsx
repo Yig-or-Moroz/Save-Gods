@@ -308,7 +308,10 @@ const LayoutGameScreen = ({ navigation, route }: any) => {
 				style={styles.sectionContainer}
 			>
 				<TouchableOpacity
-					style={styles.sectionHeader}
+					style={[
+						styles.sectionHeader,
+						isExpanded && styles.sectionHeaderExpanded,
+					]}
 					onPress={() => toggleSection(section.id)}
 					activeOpacity={0.7}
 				>
@@ -545,6 +548,10 @@ const styles = StyleSheet.create({
 		borderBottomColor: '#ccc',
 	},
 
+	sectionHeaderExpanded: {
+		backgroundColor: '#fff',
+	},
+
 	sectionTitle: {
 		fontSize: 22,
 		fontFamily: 'Kyiv-Machine',
@@ -569,6 +576,7 @@ const styles = StyleSheet.create({
 
 	sectionContentInner: {
 		padding: 16,
+		backgroundColor: "green",
 	},
 
 	placeholderText: {
