@@ -3,7 +3,6 @@ import {
 	View,
 	Text,
 	TouchableOpacity,
-	ScrollView,
 	StyleSheet,
 	Alert,
 	ActivityIndicator,
@@ -11,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 import {
 	getGameScreen,
@@ -92,7 +92,7 @@ const GameScreen = ({ navigation, route }: any) => {
 		try {
 			const expValue = parseInt(experience) || 0;
 
-			let winValue:  0 | 1 = win ? 1 : 0;
+			let winValue: 0 | 1 = win ? 1 : 0;
 			let lossesValue = lossesCount;
 
 			if (game && game.difficulty_level === 2) {
@@ -199,8 +199,13 @@ const GameScreen = ({ navigation, route }: any) => {
 				</View>
 			</View>
 
-			<ScrollView
+			<KeyboardAwareScrollView
 				contentContainerStyle={styles.scrollContent}
+				enableOnAndroid
+				extraScrollHeight={24}
+				extraHeight={24}
+				keyboardShouldPersistTaps="handled"
+				showsVerticalScrollIndicator={false}
 			>
 				<View style={styles.navButtons}>
 					<TouchableOpacity
@@ -437,7 +442,7 @@ const GameScreen = ({ navigation, route }: any) => {
 						Зберегти
 					</Text>
 				</TouchableOpacity>
-			</ScrollView>
+			</KeyboardAwareScrollView>
 		</SafeAreaView>
 	);
 };

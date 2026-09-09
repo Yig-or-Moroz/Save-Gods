@@ -4,7 +4,6 @@ import {
 	View,
 	Text,
 	TouchableOpacity,
-	ScrollView,
 	StyleSheet,
 	Alert,
 	ActivityIndicator,
@@ -12,7 +11,10 @@ import {
 } from 'react-native';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
+
 import Ionicons from '@expo/vector-icons/Ionicons';
+
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 import {
 	getShipScreen,
@@ -24,6 +26,7 @@ const ShipScreen = ({ navigation, route }: any) => {
 	const { gameId } = route.params;
 
 	const [isLoading, setIsLoading] = useState(true);
+
 	const [ship, setShip] = useState<Ship | null>(null);
 
 	const [hull, setHull] = useState(0);
@@ -54,13 +57,15 @@ const ShipScreen = ({ navigation, route }: any) => {
 			const result = await getShipScreen(gameId);
 
 			setShip(result.ship);
+
 			updateStateFromShip(result.ship);
 		} catch (error: any) {
 			console.error('[ShipScreen] LOAD ERROR:', error);
 
 			Alert.alert(
 				'Помилка',
-				error?.message || 'Не вдалося завантажити дані корабля'
+				error?.message ||
+				'Не вдалося завантажити дані корабля'
 			);
 		} finally {
 			setIsLoading(false);
@@ -162,14 +167,17 @@ const ShipScreen = ({ navigation, route }: any) => {
 
 			Alert.alert(
 				'Помилка',
-				error?.message || 'Не вдалося зберегти дані'
+				error?.message ||
+				'Не вдалося зберегти дані'
 			);
 		}
 	};
 
 	if (isLoading) {
 		return (
-			<SafeAreaView style={styles.loadingContainer}>
+			<SafeAreaView
+				style={styles.loadingContainer}
+			>
 				<ActivityIndicator
 					size="large"
 					color="#004d57"
@@ -205,8 +213,14 @@ const ShipScreen = ({ navigation, route }: any) => {
 				</View>
 			</View>
 
-			<ScrollView
-				contentContainerStyle={styles.scrollContent}
+			<KeyboardAwareScrollView
+				contentContainerStyle={
+					styles.scrollContent
+				}
+				enableOnAndroid
+				extraScrollHeight={20}
+				keyboardShouldPersistTaps="handled"
+				showsVerticalScrollIndicator={false}
 			>
 				<Text style={styles.sectionTitle}>
 					Пошкодження:
@@ -220,14 +234,17 @@ const ShipScreen = ({ navigation, route }: any) => {
 					<TouchableOpacity
 						style={[
 							styles.checkboxSmall,
-							hull === 1 && styles.checkboxChecked,
+							hull === 1 &&
+							styles.checkboxChecked,
 						]}
 						onPress={() =>
 							setHull(hull === 1 ? 0 : 1)
 						}
 					>
 						{hull === 1 && (
-							<View style={styles.checkmark} />
+							<View
+								style={styles.checkmark}
+							/>
 						)}
 					</TouchableOpacity>
 				</View>
@@ -255,7 +272,9 @@ const ShipScreen = ({ navigation, route }: any) => {
 								}}
 							>
 								{deck >= num && (
-									<View style={styles.checkmark} />
+									<View
+										style={styles.checkmark}
+									/>
 								)}
 							</TouchableOpacity>
 						))}
@@ -285,7 +304,9 @@ const ShipScreen = ({ navigation, route }: any) => {
 								}}
 							>
 								{hospital >= num && (
-									<View style={styles.checkmark} />
+									<View
+										style={styles.checkmark}
+									/>
 								)}
 							</TouchableOpacity>
 						))}
@@ -315,7 +336,9 @@ const ShipScreen = ({ navigation, route }: any) => {
 								}}
 							>
 								{caboose >= num && (
-									<View style={styles.checkmark} />
+									<View
+										style={styles.checkmark}
+									/>
 								)}
 							</TouchableOpacity>
 						))}
@@ -345,7 +368,9 @@ const ShipScreen = ({ navigation, route }: any) => {
 								}}
 							>
 								{cabin >= num && (
-									<View style={styles.checkmark} />
+									<View
+										style={styles.checkmark}
+									/>
 								)}
 							</TouchableOpacity>
 						))}
@@ -375,7 +400,9 @@ const ShipScreen = ({ navigation, route }: any) => {
 								}}
 							>
 								{bridge >= num && (
-									<View style={styles.checkmark} />
+									<View
+										style={styles.checkmark}
+									/>
 								)}
 							</TouchableOpacity>
 						))}
@@ -395,7 +422,9 @@ const ShipScreen = ({ navigation, route }: any) => {
 								lastAction === num &&
 								styles.radioSelected,
 							]}
-							onPress={() => setLastAction(num)}
+							onPress={() =>
+								setLastAction(num)
+							}
 						>
 							<Text
 								style={[
@@ -451,7 +480,11 @@ const ShipScreen = ({ navigation, route }: any) => {
 
 				<View style={styles.resourcesGrid}>
 					<View style={styles.resourceRow}>
-						<Text style={styles.resourceLabelLeft}>
+						<Text
+							style={
+								styles.resourceLabelLeft
+							}
+						>
 							м'ясо:
 						</Text>
 
@@ -463,7 +496,9 @@ const ShipScreen = ({ navigation, route }: any) => {
 							placeholder="0"
 						/>
 
-						<Text style={styles.resourceLabel}>
+						<Text
+							style={styles.resourceLabel}
+						>
 							матеріали:
 						</Text>
 
@@ -477,7 +512,11 @@ const ShipScreen = ({ navigation, route }: any) => {
 					</View>
 
 					<View style={styles.resourceRow}>
-						<Text style={styles.resourceLabelLeft}>
+						<Text
+							style={
+								styles.resourceLabelLeft
+							}
+						>
 							овочі:
 						</Text>
 
@@ -489,7 +528,9 @@ const ShipScreen = ({ navigation, route }: any) => {
 							placeholder="0"
 						/>
 
-						<Text style={styles.resourceLabel}>
+						<Text
+							style={styles.resourceLabel}
+						>
 							артефакти:
 						</Text>
 
@@ -503,7 +544,11 @@ const ShipScreen = ({ navigation, route }: any) => {
 					</View>
 
 					<View style={styles.resourceRow}>
-						<Text style={styles.resourceLabelLeft}>
+						<Text
+							style={
+								styles.resourceLabelLeft
+							}
+						>
 							зерно:
 						</Text>
 
@@ -515,7 +560,9 @@ const ShipScreen = ({ navigation, route }: any) => {
 							placeholder="0"
 						/>
 
-						<Text style={styles.resourceLabel}>
+						<Text
+							style={styles.resourceLabel}
+						>
 							монети:
 						</Text>
 
@@ -533,11 +580,13 @@ const ShipScreen = ({ navigation, route }: any) => {
 					style={styles.saveButton}
 					onPress={handleSave}
 				>
-					<Text style={styles.saveButtonText}>
+					<Text
+						style={styles.saveButtonText}
+					>
 						Зберегти
 					</Text>
 				</TouchableOpacity>
-			</ScrollView>
+			</KeyboardAwareScrollView>
 		</SafeAreaView>
 	);
 };
@@ -772,4 +821,6 @@ const styles = StyleSheet.create({
 });
 
 export default ShipScreen;
+
+
 

@@ -5,11 +5,12 @@ import {
 	Text,
 	TextInput,
 	TouchableOpacity,
-	ScrollView,
 	StyleSheet,
 	Alert,
 	ActivityIndicator,
 } from 'react-native';
+
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -307,7 +308,14 @@ const NewGameScreen = ({ navigation }: any) => {
 				</View>
 			</View>
 
-			<ScrollView contentContainerStyle={styles.scrollContent}>
+			<KeyboardAwareScrollView
+				contentContainerStyle={styles.scrollContent}
+				enableOnAndroid
+				extraScrollHeight={150}
+				keyboardShouldPersistTaps="handled"
+				showsVerticalScrollIndicator={false}
+				enableResetScrollToCoords={false}
+			>
 				<View style={styles.field}>
 					<Text style={styles.label}>Назва гри</Text>
 
@@ -484,7 +492,7 @@ const NewGameScreen = ({ navigation }: any) => {
 						Створити
 					</Text>
 				</TouchableOpacity>
-			</ScrollView>
+			</KeyboardAwareScrollView>
 		</SafeAreaView>
 	);
 };
