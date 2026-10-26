@@ -52,4 +52,4 @@ Save Gods is a personal project focused on mobile application development and pr
 
 **Ihor Moroz**
 
-[GitHub Profile](https://github.com/Yig-or-Moroz) · [Source Code](https://github.com/Yig-or-Moroz/Save-Gods)
+[GitHub Profile](https://github.com/Yig-or-Moroz) · [Source Code](https://github.com/Yig-or-Moroz/Save-Gods/tree/game-service-refactor)
