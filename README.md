@@ -18,15 +18,15 @@ A mobile companion app for the *Sleeping Gods* cooperative board game, built wit
 
 
 <p align="center">
-  <img src="screenshots/01_home-screen.jpg" width="200" alt="Home Screen" />
-  <img src="screenshots/02_new_game_screen.jpg" width="200" alt="New Game Screen" />
-  <img src="screenshots/03_games_screen.jpg" width="200" alt="Games Screen" />
+  <img src="screenshots/01_home_screen.jpg" width="250" alt="Home Screen" />
+  <img src="screenshots/02_new_game_screen.jpg" width="250" alt="New Game Screen" />
+  <img src="screenshots/03_games_screen.jpg" width="250" alt="Games Screen" />
 </p>
 
 <p align="center">
-  <img src="screenshots/04_save_game_screen.jpg" width="200" alt="Save Game Screen" />
-  <img src="screenshots/05_load_game_screen_ship.jpg" width="200" alt="Load Game Ship Screen" />
-  <img src="screenshots/06_load_game_screen_captain.jpg" width="200" alt="Load Game Captain Screen" />
+  <img src="screenshots/04_save_game_screen.jpg" width="250" alt="Save Game Screen" />
+  <img src="screenshots/05_load_game_screen_ship.jpg" width="250" alt="Load Game Ship Screen" />
+  <img src="screenshots/06_load_game_screen_captain.jpg" width="250" alt="Load Game Captain Screen" />
 </p>
 
 
